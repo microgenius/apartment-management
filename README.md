@@ -219,7 +219,7 @@ MIT License
 
 Sorular için:
 - GitHub Issues
-- Email: your-email@example.com
+- Email: sezertanriverdi@gmail.com
 
 ## 🙏 Teşekkürler
 
