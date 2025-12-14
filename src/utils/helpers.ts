@@ -1,0 +1,139 @@
+// ==========================================
+// HELPER FUNCTIONS (Yardımcı Fonksiyonlar)
+// ==========================================
+
+import type { Resident, LedgerItem, BaseClasses, Language } from '../types';
+
+/**
+ * Ledger kayıtlarından toplam borcu hesaplar
+ * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
+ * @returns Toplam borç miktarı
+ */
+export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
+  return ledgerItems
+    .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
+    .reduce((acc, item) => {
+      if (item.status === 'partial_paid') {
+        // For partial payments, calculate remaining amount
+        const remaining = item.amount - (item.paid_amount || 0);
+        return acc + remaining;
+      }
+      return acc + item.amount;
+    }, 0);
+};
+
+/**
+ * Sakinin ledger'ını planlı ödemelerle birlikte döndürür
+ * @param resident - Sakin bilgisi
+ * @param meetingDate - Toplantı tarihi
+ * @param lang - Dil seçimi
+ * @param monthlyDue - Aylık aidat tutarı (settings'den)
+ * @param debtStartDate - Borç hesaplama başlangıç tarihi
+ * @returns Tüm ledger kayıtları (mevcut + planlı)
+ */
+export const getResidentLedgerWithPlanning = (
+  resident: Resident, 
+  meetingDate: string, 
+  lang: Language,
+  monthlyDue: number = 1500,
+  debtStartDate: string = '2024-01-01'
+): LedgerItem[] => {
+  let fullLedger = [...resident.ledger];
+  const startDate = new Date(debtStartDate);
+  const startMonth = startDate.getMonth();
+  const startYear = startDate.getFullYear();
+  const meeting = new Date(meetingDate);
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  // Start planning from the first day of the debt start date month
+  // Add 12 hours to prevent timezone issues with date comparison
+  let loopDate = new Date(startYear, startMonth, 1, 12, 0, 0, 0);
+  
+  while(loopDate <= meeting) {
+    // Use first day of month as the due date
+    const dateStr = loopDate.toISOString().split('T')[0];
+    const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
+    
+    // Check if there's already a record for this month
+    const existingRecord = fullLedger.find((l) => l.date.startsWith(yearMonth));
+    
+    if (!existingRecord) {
+      // No record exists, create a planned one
+      // Name it after the month it falls in (e.g., 2025-12-01 = December dues)
+      const monthName = loopDate.toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' });
+      const dueName = lang === 'tr' ? 'Aidatı' : 'Monthly Due';
+      // If the month has passed (before current month), mark as unpaid, otherwise planned
+      const loopMonth = loopDate.getMonth();
+      const loopYear = loopDate.getFullYear();
+      const isPast = loopYear < currentYear || (loopYear === currentYear && loopMonth < currentMonth);
+      const isCurrent = loopYear === currentYear && loopMonth === currentMonth;
+      const status = (isPast || isCurrent) ? 'unpaid' : 'planned';
+      
+      fullLedger.push({
+        id: `plan-${resident.id}-${loopDate.getTime()}`,
+        date: dateStr, // First day of month
+        desc: `${monthName} ${dueName}`,
+        amount: monthlyDue,
+        status: status as LedgerItem['status'],
+        paid_amount: 0
+      });
+    }
+    
+    loopDate.setMonth(loopDate.getMonth() + 1);
+  }
+  
+  return fullLedger;
+};
+
+/**
+ * Custom sorting function for ledger items
+ * Order: unpaid -> partial_paid -> planned -> paid (all by date ascending within each group)
+ * @param items - Ledger items to sort
+ * @returns Sorted ledger items
+ */
+export const sortLedgerItems = (items: LedgerItem[]): LedgerItem[] => {
+  const statusOrder: Record<LedgerItem['status'], number> = {
+    unpaid: 1,
+    partial_paid: 2,
+    planned: 3,
+    paid: 4
+  };
+  
+  return [...items].sort((a, b) => {
+    // First sort by status priority
+    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+    if (statusDiff !== 0) return statusDiff;
+    
+    // Within same status, sort by date ascending (oldest first)
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+};
+
+/**
+ * Dark mode'a göre base CSS classlarını oluşturur
+ * @param darkMode - Dark mode aktif mi?
+ * @returns Base CSS class nesnesi
+ */
+export const getBaseClasses = (darkMode: boolean): BaseClasses => ({
+  bgMain: darkMode ? 'bg-slate-900' : 'bg-slate-100',
+  bgCard: darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200',
+  textMain: darkMode ? 'text-slate-100' : 'text-slate-800',
+  textSub: darkMode ? 'text-slate-400' : 'text-slate-600',
+  border: darkMode ? 'border-slate-700' : 'border-slate-200',
+  input: darkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900',
+  sidebar: darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100',
+  header: darkMode ? 'bg-slate-800 shadow-slate-900/20' : 'bg-white shadow-sm',
+  hover: darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
+});
+
+/**
+ * Çeviri fonksiyonu oluşturur
+ * @param translations - Çeviri objesi
+ * @param lang - Dil
+ * @returns Çeviri fonksiyonu
+ */
+export const createTranslator = (translations: Record<string, Record<string, string>>, lang: string) => {
+  return (key: string): string => translations[lang]?.[key] || key;
+};
