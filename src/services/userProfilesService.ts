@@ -11,8 +11,6 @@ export interface UserProfile {
 
 export const userProfilesService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
-    console.log('🔍 Fetching profile for user:', userId);
-    
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -21,17 +19,10 @@ export const userProfilesService = {
         .single();
 
       if (error) {
-        console.error('❌ Error fetching user profile:', error);
-        console.error('Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
+        console.error('❌ Error fetching user profile:', error.message, error.code);
         return null;
       }
 
-      console.log('✅ Profile fetched successfully:', data);
       return data;
     } catch (err) {
       console.error('❌ Exception in getProfile:', err);

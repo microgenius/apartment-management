@@ -132,11 +132,17 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- ==========================================
 
 -- Info (İletişim Bilgileri)
-INSERT INTO info (role, name, phone) VALUES
+-- NOT: 'role' unique değil (aynı role'den birden fazla satır olabilir, örn. iki municipality),
+-- bu yüzden ON CONFLICT (role) kullanılamaz — (role, name) ikilisiyle idempotent hale getirildi.
+INSERT INTO info (role, name, phone)
+SELECT v.role, v.name, v.phone FROM (VALUES
   ('muhtar', 'Nazife Şahin', '0507 231 84 20'),
   ('municipality', 'Aydın Büyükşehir', '444 40 09'),
   ('municipality', 'Kuşadası Belediyesi', '0256 460 40 40')
-ON CONFLICT (role) DO NOTHING;
+) AS v(role, name, phone)
+WHERE NOT EXISTS (
+  SELECT 1 FROM info WHERE info.role = v.role AND info.name = v.name
+);
 
 -- Reset sequences
 SELECT setval('residents_id_seq', (SELECT MAX(id) FROM residents));
