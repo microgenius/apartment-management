@@ -4,6 +4,7 @@ import type { SettingsViewProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService } from '../../services/userProfilesService';
 import { residentsService } from '../../services/residentsService';
+import { DIAL_CODES } from '../../utils/helpers';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -19,7 +20,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   setDebtStartDate,
   darkMode,
   residents,
-  refetchResidents
+  refetchResidents,
+  lang
 }) => {
   const { user, createUser, refreshProfile } = useAuth();
   const [tempDate, setTempDate] = useState(meetingDate);
@@ -98,7 +100,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         newUserName,
         newUserRole,
         newUserApartment || undefined,
-        newUserPhone || undefined
+        newUserPhone || undefined,
+        DIAL_CODES[lang]
       );
 
       if (error) {

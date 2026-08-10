@@ -10,9 +10,13 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   userRole: 'resident' | 'admin' | null;
   loading: boolean;
-  /** identifier: email veya telefon numarası (hangisi olduğu otomatik ayırt edilir) */
-  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>;
-  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string) => Promise<{ error: Error | null; userId: string | null }>;
+  /**
+   * identifier: email veya telefon numarası (hangisi olduğu otomatik ayırt edilir).
+   * dialCode: ülke kodu yazılmamış telefonlar için varsayılan (bkz. DIAL_CODES).
+   * Kullanıcı kitlesi TR/DE/IE olduğu için sabit +90 varsaymak yanlış numara üretir.
+   */
+  signIn: (identifier: string, password: string, dialCode?: string) => Promise<{ error: Error | null }>;
+  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => Promise<{ error: Error | null; userId: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -103,13 +107,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Email ve telefon Supabase'de ayrı alanlar; girdiye göre doğru olanı gönderiyoruz
-  const signIn = async (identifier: string, password: string) => {
+  const signIn = async (identifier: string, password: string, dialCode?: string) => {
     try {
       let credentials;
       if (isEmail(identifier)) {
         credentials = { email: identifier.trim(), password };
       } else {
-        const phone = toE164(identifier);
+        const phone = toE164(identifier, dialCode);
         if (!phone) return { error: new Error('INVALID_PHONE') };
         credentials = { phone, password };
       }
@@ -121,11 +125,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createUser = async (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string) => {
+  const createUser = async (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => {
     try {
       // Admin tarafından yeni kullanıcı oluşturma.
       // Supabase signUp tek bir kimlik alıyor: email verilmişse email, yoksa telefon.
-      const normalizedPhone = phone ? toE164(phone) : null;
+      const normalizedPhone = phone ? toE164(phone, dialCode) : null;
       if (!email && !normalizedPhone) {
         return { error: new Error('NO_IDENTIFIER'), userId: null };
       }

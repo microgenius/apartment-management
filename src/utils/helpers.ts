@@ -62,8 +62,8 @@ export const getResidentLedgerWithPlanning = (
     if (!existingRecord) {
       // No record exists, create a planned one
       // Name it after the month it falls in (e.g., 2025-12-01 = December dues)
-      const monthName = loopDate.toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' });
-      const dueName = lang === 'tr' ? 'Aidatı' : 'Monthly Due';
+      const monthName = loopDate.toLocaleString(LOCALES[lang] ?? LOCALES.en, { month: 'long', year: 'numeric' });
+      const dueName = lang === 'tr' ? 'Aidatı' : lang === 'de' ? 'Hausgeld' : 'Monthly Due';
       // If the month has passed (before current month), mark as unpaid, otherwise planned
       const loopMonth = loopDate.getMonth();
       const loopYear = loopDate.getFullYear();
@@ -129,31 +129,60 @@ export const getBaseClasses = (darkMode: boolean): BaseClasses => ({
 });
 
 /**
+ * Dil seçimine karşılık gelen ülke telefon kodu.
+ * Kullanıcı kitlesi: Türkiye (tr), Almanya (de), İrlanda (en).
+ * Kullanıcı numarayı "+" ile yazarsa bu varsayılan devre dışı kalır.
+ */
+export const DIAL_CODES: Record<Language, string> = {
+  tr: '90',
+  de: '49',
+  en: '353' // İrlanda
+};
+
+/**
+ * Dil seçimine karşılık gelen tarih/sayı yerel ayarı.
+ */
+export const LOCALES: Record<Language, string> = {
+  tr: 'tr-TR',
+  de: 'de-DE',
+  en: 'en-IE' // İrlanda: gün/ay/yıl, en-US'ten farklı
+};
+
+/**
  * Girdinin email mi telefon mu olduğunu ayırt eder.
  * Supabase signInWithPassword email ve telefonu ayrı alanlarda bekliyor.
  */
 export const isEmail = (input: string): boolean => input.includes('@');
 
+// E.164 en fazla 15 hane; alt sınır kısa/eksik girdileri elemek için
+const isValidE164Length = (digits: string) => digits.length >= 8 && digits.length <= 15;
+
 /**
  * Telefon numarasını Supabase'in beklediği E.164 formatına çevirir.
- * Kabul edilen girdiler (hepsi aynı numara):
- *   "0507 231 84 20", "05072318420", "5072318420",
- *   "905072318420", "+90 507 231 84 20"
- * Ülke kodu açıkça verilmemişse Türkiye (+90) varsayılır.
- * Çevrilemeyen girdide null döner - çağıran taraf kullanıcıya hata gösterir.
+ * Ülkeye özel hane sayısı varsaymaz - kural her üç pazarda da aynı:
+ * baştaki şehirlerarası "0" atılır, yerine ülke kodu gelir.
+ *   TR "0507 231 84 20"  -> +905072318420
+ *   DE "0151 23456789"   -> +4915123456789
+ *   IE "085 123 4567"    -> +353851234567
+ * Numara "+" ile başlıyorsa dokunulmaz (kullanıcı ülke kodunu kendi yazmış).
+ * Çevrilemeyen girdide null döner - sessizce yanlış numara üretmez.
  */
-export const toE164 = (input: string): string | null => {
+export const toE164 = (input: string, dialCode: string = DIAL_CODES.tr): string | null => {
   const trimmed = input.trim();
   const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return null;
 
-  // Ülke kodu zaten yazılmışsa olduğu gibi kabul et (yurt dışı numarası olabilir)
-  if (trimmed.startsWith('+')) return digits.length >= 10 ? `+${digits}` : null;
+  // Ülke kodu açıkça yazılmışsa olduğu gibi kabul et (yurt dışı numarası olabilir)
+  if (trimmed.startsWith('+')) return isValidE164Length(digits) ? `+${digits}` : null;
 
-  if (digits.length === 10) return `+90${digits}`;                              // 5072318420
-  if (digits.length === 11 && digits.startsWith('0')) return `+90${digits.slice(1)}`;  // 05072318420
-  if (digits.length === 12 && digits.startsWith('90')) return `+${digits}`;     // 905072318420
+  const national = digits.startsWith('0')
+    ? digits.slice(1)
+    : digits.startsWith(dialCode)
+      ? digits.slice(dialCode.length)
+      : digits;
 
-  return null;
+  const full = `${dialCode}${national}`;
+  return isValidE164Length(full) ? `+${full}` : null;
 };
 
 /**

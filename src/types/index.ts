@@ -3,7 +3,7 @@
 // ==========================================
 
 // Temel Tipler
-export type Language = 'tr' | 'en';
+export type Language = 'tr' | 'en' | 'de';
 export type UserRole = 'resident' | 'admin';
 export type ThemeName = 'blue' | 'purple' | 'green' | 'orange';
 export type LedgerStatus = 'paid' | 'unpaid' | 'planned' | 'partial_paid';
@@ -120,6 +120,7 @@ export interface HeaderProps {
 
 export interface FinancialsViewProps extends CommonProps {
   userRole: string;
+  lang: Language;
   residents: Resident[];
   setResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
   meetingDate: string;
@@ -161,6 +162,7 @@ export interface SettingsViewProps extends CommonProps {
   setDebtStartDate: (date: string) => void;
   residents: Resident[];
   refetchResidents: () => void;
+  lang: Language; // telefon numarasını doğru ülke koduyla normalize etmek için
 }
 
 export interface InfoViewProps extends CommonProps {}

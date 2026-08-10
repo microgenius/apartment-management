@@ -7,11 +7,12 @@ import { receiptRequestsService } from '../../services/receiptRequestsService';
 import { useReceiptRequests } from '../../hooks/useReceiptRequests';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
-import { sortLedgerItems } from '../../utils/helpers';
+import { sortLedgerItems, LOCALES } from '../../utils/helpers';
 
-export const FinancialsView: React.FC<FinancialsViewProps> = ({ 
-  userRole, 
-  residents, 
+export const FinancialsView: React.FC<FinancialsViewProps> = ({
+  userRole,
+  lang,
+  residents,
   setResidents, 
   baseClasses, 
   currentTheme, 
@@ -378,7 +379,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                   receiptRequests.map((request) => (
                     <tr key={request.id} className={`border-b ${baseClasses.border} ${baseClasses.textMain}`}>
                       <td className="p-4 text-sm">
-                        {new Date(request.created_at).toLocaleDateString('tr-TR')}
+                        {new Date(request.created_at).toLocaleDateString(LOCALES[lang])}
                       </td>
                       <td className="p-4 font-medium">{request.user_name}</td>
                       <td className="p-4 text-sm">{request.apartment_info || '-'}</td>

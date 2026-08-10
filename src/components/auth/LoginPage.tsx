@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Building2, User, Lock, AlertCircle, Loader2, Globe, Palette } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cookies } from '../../utils/cookies';
-import { TRANSLATIONS } from '../../constants/translations';
+import { TRANSLATIONS, LANGUAGES, isLanguage } from '../../constants/translations';
 import { THEMES } from '../../constants/themes';
 import type { Language, ThemeName } from '../../types';
-import { createTranslator } from '../../utils/helpers';
+import { createTranslator, DIAL_CODES } from '../../utils/helpers';
 
 export const LoginPage: React.FC = () => {
   // Email ya da telefon numarası olabilir - ayrımı AuthContext yapıyor
@@ -18,7 +18,7 @@ export const LoginPage: React.FC = () => {
   // Read preferences from cookies
   const [lang, setLang] = useState<Language>(() => {
     const saved = cookies.get('app_language');
-    return (saved === 'tr' || saved === 'en') ? saved as Language : 'tr';
+    return isLanguage(saved) ? saved : 'tr';
   });
   const [theme, setTheme] = useState<ThemeName>(() => {
     const saved = cookies.get('app_theme');
@@ -44,7 +44,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await signIn(identifier, password);
+      const { error } = await signIn(identifier, password, DIAL_CODES[lang]);
       if (error) {
         setError(error.message === 'INVALID_PHONE' ? t('login_error_phone') : t('login_error'));
       }
@@ -73,18 +73,15 @@ export const LoginPage: React.FC = () => {
               <span className="text-sm font-medium text-gray-700">{lang.toUpperCase()}</span>
             </button>
             <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-              <button
-                onClick={() => handleLangChange('tr')}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-50 ${lang === 'tr' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
-              >
-                Türkçe
-              </button>
-              <button
-                onClick={() => handleLangChange('en')}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-50 ${lang === 'en' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
-              >
-                English
-              </button>
+              {LANGUAGES.map(({ code, label }) => (
+                <button
+                  key={code}
+                  onClick={() => handleLangChange(code)}
+                  className={`w-full px-4 py-2 text-left whitespace-nowrap hover:bg-gray-50 ${lang === code ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           

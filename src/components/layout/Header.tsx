@@ -1,7 +1,8 @@
 import React from 'react';
 import { Menu, Globe, Sun, Moon } from 'lucide-react';
-import type { HeaderProps, ThemeName } from '../../types';
+import type { HeaderProps, ThemeName, Language } from '../../types';
 import { THEMES } from '../../constants/themes';
+import { LANGUAGES } from '../../constants/translations';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,13 +34,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
       
       <div className="flex items-center gap-3">
-        {/* Language Toggle */}
-        <button 
-          onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')} 
-          className={`flex items-center px-2 py-1.5 rounded-md text-sm font-bold ${baseClasses.textMain} ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}
-        >
-          <Globe size={16} className="mr-1"/> {lang === 'tr' ? 'EN' : 'TR'}
-        </button>
+        {/* Language Selector - 3 dil olduğu için aç/kapa yerine liste */}
+        <div className={`flex items-center rounded-md ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+          <Globe size={16} className={`ml-2 ${baseClasses.textSub}`} />
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Language)}
+            aria-label={t('identifier_label')}
+            className={`bg-transparent px-1.5 py-1.5 text-sm font-bold outline-none cursor-pointer ${baseClasses.textMain}`}
+          >
+            {LANGUAGES.map(({ code, label }) => (
+              <option key={code} value={code} className={darkMode ? 'bg-slate-800' : 'bg-white'}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
         
         {/* Dark Mode & Theme Selector */}
         <div className={`flex items-center rounded-lg p-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
