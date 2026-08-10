@@ -5,7 +5,8 @@ import { cookies } from '../../utils/cookies';
 import { TRANSLATIONS, LANGUAGES, isLanguage } from '../../constants/translations';
 import { THEMES } from '../../constants/themes';
 import type { Language, ThemeName } from '../../types';
-import { createTranslator, DIAL_CODES } from '../../utils/helpers';
+import { createTranslator, DIAL_CODES, isEmail } from '../../utils/helpers';
+import { COUNTRIES } from '../../constants/countries';
 
 export const LoginPage: React.FC = () => {
   // Email ya da telefon numarası olabilir - ayrımı AuthContext yapıyor
@@ -27,9 +28,19 @@ export const LoginPage: React.FC = () => {
   
   const t = createTranslator(TRANSLATIONS, lang);
   const currentTheme = THEMES[theme];
-  
+
+  // Ülke kodu: dil seçimine göre başlar, kullanıcı değiştirebilir.
+  // Numarasını "+" veya "00" ile yazan kullanıcıda bu seçim zaten yok sayılır.
+  const [dialCode, setDialCode] = useState<string>(DIAL_CODES[lang]);
+
+  // Girdinin telefon gibi göründüğü durumda ülke seçicisini göster.
+  // Email yazanları ya da kodu kendi yazanları gereksiz alanla meşgul etmiyoruz.
+  const showCountry =
+    identifier.trim() !== '' && !isEmail(identifier) && !identifier.trim().startsWith('+');
+
   const handleLangChange = (newLang: Language) => {
     setLang(newLang);
+    setDialCode(DIAL_CODES[newLang]);
     cookies.set('app_language', newLang, 365);
   };
   
@@ -44,7 +55,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await signIn(identifier, password, DIAL_CODES[lang]);
+      const { error } = await signIn(identifier, password, dialCode);
       if (error) {
         setError(error.message === 'INVALID_PHONE' ? t('login_error_phone') : t('login_error'));
       }
@@ -142,20 +153,37 @@ export const LoginPage: React.FC = () => {
               <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
                 {t('identifier_label')}
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  id="identifier"
-                  name="identifier"
-                  autoComplete="username"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder={t('identifier_placeholder')}
-                  required
-                />
+              <div className="flex gap-2">
+                {showCountry && (
+                  <select
+                    value={dialCode}
+                    onChange={(e) => setDialCode(e.target.value)}
+                    aria-label={t('country_code')}
+                    className="w-28 shrink-0 px-2 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  >
+                    {COUNTRIES.map(({ code, name, flag }) => (
+                      <option key={code} value={code}>{flag} +{code} {name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="relative flex-1">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    id="identifier"
+                    name="identifier"
+                    autoComplete="username"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    placeholder={t('identifier_placeholder')}
+                    required
+                  />
+                </div>
               </div>
+              {showCountry && (
+                <p className="text-xs text-gray-500 mt-1">{t('country_code_hint')}</p>
+              )}
             </div>
 
             {/* Password */}

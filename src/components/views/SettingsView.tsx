@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService } from '../../services/userProfilesService';
 import { residentsService } from '../../services/residentsService';
 import { DIAL_CODES } from '../../utils/helpers';
+import { COUNTRIES } from '../../constants/countries';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -32,6 +33,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // New User Form
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
+  // Sakinler Türkiye dışında da yaşayabiliyor; ülke kodu dilden bağımsız seçilebilmeli
+  const [newUserDialCode, setNewUserDialCode] = useState<string>(DIAL_CODES[lang]);
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'resident' | 'admin'>('resident');
@@ -101,7 +104,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         newUserRole,
         newUserApartment || undefined,
         newUserPhone || undefined,
-        DIAL_CODES[lang]
+        newUserDialCode
       );
 
       if (error) {
@@ -326,14 +329,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
               {t('phone')}
             </label>
-            <input
-              type="tel"
-              value={newUserPhone}
-              onChange={(e) => setNewUserPhone(e.target.value)}
-              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
-              placeholder={t('placeholder_phone')}
-            />
+            <div className="flex gap-2">
+              <select
+                value={newUserDialCode}
+                onChange={(e) => setNewUserDialCode(e.target.value)}
+                aria-label={t('country_code')}
+                className={`w-32 shrink-0 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              >
+                {COUNTRIES.map(({ code, name, flag }) => (
+                  <option key={code} value={code}>{flag} +{code} {name}</option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                value={newUserPhone}
+                onChange={(e) => setNewUserPhone(e.target.value)}
+                className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+                placeholder={t('placeholder_phone')}
+              />
+            </div>
             <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('identifier_hint')}</p>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('country_code_hint')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

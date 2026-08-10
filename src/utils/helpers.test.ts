@@ -26,10 +26,29 @@ assert.equal(toE164('085 123 4567', DIAL_CODES.en), IE);
 assert.equal(toE164('0851234567', DIAL_CODES.en), IE);
 assert.equal(toE164('+353 85 123 4567', DIAL_CODES.en), IE);
 
-// --- Ülke kodu açıkça yazılmışsa dil seçimi onu ezmemeli ---
+// --- Ülke kodu açıkça yazılmışsa seçili ülke onu ezmemeli ---
 // (Almanya'da yaşayan bir sakin arayüzü Türkçe kullanıyor olabilir)
 assert.equal(toE164('+49 151 23456789', DIAL_CODES.tr), DE);
 assert.equal(toE164('+90 507 231 84 20', DIAL_CODES.de), TR);
+
+// --- "00" uluslararası öneki de kabul edilmeli (Avrupa'da yaygın yazım) ---
+assert.equal(toE164('0049 151 23456789', DIAL_CODES.tr), DE);
+assert.equal(toE164('0090 507 231 84 20', DIAL_CODES.de), TR);
+assert.equal(toE164('00353 85 123 4567', DIAL_CODES.tr), IE);
+
+// --- Seçilen ülke koduyla diğer Avrupa ülkeleri ---
+assert.equal(toE164('06 12345678', '31'), '+31612345678');    // Hollanda
+assert.equal(toE164('07911 123456', '44'), '+447911123456');  // Birleşik Krallık
+assert.equal(toE164('06 12 34 56 78', '33'), '+33612345678'); // Fransa
+assert.equal(toE164('333 1234567', '39'), '+393331234567');   // İtalya (0 yok)
+
+// Milli numaranın kendisi ülke koduyla başlayabilir - kırpılmamalı
+assert.equal(toE164('391 234 5678', '39'), '+393912345678');  // İtalyan cep, 39 ile başlıyor
+assert.equal(toE164('634 123 456', '34'), '+34634123456');    // İspanya, 34 ile başlıyor
+// ...ama gerçekten ülke kodu yazılmışsa kırpılmalı
+assert.equal(toE164('905072318420', '90'), TR);
+assert.equal(toE164('4915123456789', '49'), DE);
+assert.equal(toE164('353851234567', '353'), IE);
 
 // --- Geçersiz girdiler null dönmeli - sessizce yanlış numara üretmemeli ---
 assert.equal(toE164('', DIAL_CODES.tr), null);

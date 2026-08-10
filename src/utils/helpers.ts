@@ -159,12 +159,17 @@ const isValidE164Length = (digits: string) => digits.length >= 8 && digits.lengt
 
 /**
  * Telefon numarasını Supabase'in beklediği E.164 formatına çevirir.
- * Ülkeye özel hane sayısı varsaymaz - kural her üç pazarda da aynı:
- * baştaki şehirlerarası "0" atılır, yerine ülke kodu gelir.
- *   TR "0507 231 84 20"  -> +905072318420
- *   DE "0151 23456789"   -> +4915123456789
- *   IE "085 123 4567"    -> +353851234567
- * Numara "+" ile başlıyorsa dokunulmaz (kullanıcı ülke kodunu kendi yazmış).
+ * Ülkeye özel hane sayısı varsaymaz - kural aynı: baştaki şehirlerarası "0"
+ * atılır, yerine ülke kodu gelir.
+ *   TR "0507 231 84 20"  + dialCode 90  -> +905072318420
+ *   DE "0151 23456789"   + dialCode 49  -> +4915123456789
+ *   IE "085 123 4567"    + dialCode 353 -> +353851234567
+ *
+ * Kullanıcı ülke kodunu kendi yazdıysa dialCode yok sayılır. İki biçim de
+ * kabul edilir ve Avrupa'daki her ülke kodu için çalışır:
+ *   "+49 151 23456789"  -> +4915123456789
+ *   "0049 151 23456789" -> +4915123456789   (00 = uluslararası önek)
+ *
  * Çevrilemeyen girdide null döner - sessizce yanlış numara üretmez.
  */
 export const toE164 = (input: string, dialCode: string = DIAL_CODES.tr): string | null => {
@@ -172,12 +177,23 @@ export const toE164 = (input: string, dialCode: string = DIAL_CODES.tr): string 
   const digits = trimmed.replace(/\D/g, '');
   if (!digits) return null;
 
-  // Ülke kodu açıkça yazılmışsa olduğu gibi kabul et (yurt dışı numarası olabilir)
+  // Ülke kodu açıkça yazılmışsa olduğu gibi kabul et: "+49..." veya "0049..."
   if (trimmed.startsWith('+')) return isValidE164Length(digits) ? `+${digits}` : null;
+  if (digits.startsWith('00')) {
+    const international = digits.slice(2);
+    return isValidE164Length(international) ? `+${international}` : null;
+  }
+
+  // Baştaki rakamlar ülke koduna benziyor diye kırpmak tek başına güvenli değil:
+  // bazı milli numaralar kendi ülke koduyla başlar (İtalyan cep "391 234 5678").
+  // Sadece uzunluk gerçekten ülke kodu + milli numara olacak kadar fazlaysa kırp;
+  // aksi halde numarayı olduğu gibi milli numara say.
+  const looksPrefixed =
+    digits.startsWith(dialCode) && digits.length >= dialCode.length + 9;
 
   const national = digits.startsWith('0')
     ? digits.slice(1)
-    : digits.startsWith(dialCode)
+    : looksPrefixed
       ? digits.slice(dialCode.length)
       : digits;
 
