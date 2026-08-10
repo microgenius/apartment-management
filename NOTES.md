@@ -12,7 +12,7 @@
 **Sizin yapmanız gerekenler (kod değil, Supabase tarafı):**
 1. Supabase SQL Editor'de sırayla çalıştırın: `scripts/add_residents_user_id.sql`, ardından `scripts/enable_rls.sql`. İkisi de idempotent, tekrar çalıştırmak güvenli.
 2. `enable_rls.sql`'i prod'a uygulamadan önce mümkünse bir staging/test projede deneyin — RLS politikaları yanlış kurgulanırsa uygulamayı tamamen kilitleyebilir (hard-to-reverse bir adım, geri almak için tabloyu tekrar `DISABLE ROW LEVEL SECURITY` yapmak gerekir).
-3. Mevcut (migration öncesi oluşturulmuş) kullanıcıları yeni "Sakin Kaydına Bağla" özelliği otomatik bağlamıyor — admin'in Settings'ten mevcut sakinleri tek tek gözden geçirip bağlaması lazım (ya da SQL ile toplu bir eşleştirme scripti isterseniz onu da yazarım).
+3. Mevcut (migration öncesi oluşturulmuş) kullanıcılar için **`scripts/backfill_residents_user_id.sql`** yazıldı — isim eşleşmesiyle toplu bağlama yapıyor, ama sadece **tek anlamlı** eşleşmeleri commit ediyor (bir isim tam olarak bir sakin ve bir kullanıcıyla eşleşiyorsa). Belirsiz olanlara dokunmuyor, çünkü yanlış bağlantı bir sakinin borcunu başkasına gösterir. Script üç bölüm: STEP 1 önizleme (hiçbir şeyi değiştirmez), STEP 2 uygulama, STEP 3 elle bağlanması gerekenlerin raporu. **Önce STEP 1'i çalıştırıp çıktıyı gözden geçirin.**
 
 ## WhatsApp entegrasyonu — Supabase üzerinden mi?
 

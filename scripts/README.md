@@ -210,3 +210,111 @@ To remove the setting:
 ```sql
 DELETE FROM settings WHERE key = 'debt_start_date';
 ```
+
+---
+
+## 5. Link Residents to User Accounts (`add_residents_user_id.sql`)
+
+### Purpose
+Adds a `user_id` column to `residents` so a resident record can be tied to an
+actual login account. Before this, the app matched a logged-in user to their
+resident row by comparing `user_profiles.full_name` to `residents.name` - a
+typo, a surname change or a double space silently detached someone from their
+own ledger.
+
+### Important: the link is OPTIONAL
+The column is **nullable on purpose**. Not every resident record has a user
+account behind it - empty flats, tenants who never sign up, or rows the admin
+keeps purely for bookkeeping. It is **unique when set**, so one account maps
+to at most one resident row.
+
+### How to Run
+Supabase Dashboard > **SQL Editor** > New Query > paste > **Run**.
+Idempotent - safe to run multiple times.
+
+### After Running
+- `FinancialsView` matches on `user_id` first, falling back to the old name
+  match only for rows that aren't linked yet.
+- Admins can link a new account to a resident row from
+  **Settings > Yeni Kullanıcı Oluştur > Sakin Kaydına Bağla** (optional field).
+
+### Rollback (if needed)
+```sql
+DROP INDEX IF EXISTS idx_residents_user_id_unique;
+ALTER TABLE residents DROP COLUMN IF EXISTS user_id;
+```
+
+---
+
+## 6. Backfill Existing Accounts (`backfill_residents_user_id.sql`)
+
+### Purpose
+`add_residents_user_id.sql` only adds the column - every existing resident
+starts at `user_id = NULL`. This script links **already-registered users** to
+their resident row in bulk, so you don't have to click through them one by one.
+
+**Run this after `add_residents_user_id.sql`.**
+
+### How It Matches
+It reuses the old name match, but only commits **unambiguous** ones:
+- only rows where `user_id IS NULL`
+- skips users already linked to some resident
+- a normalised name (trimmed, collapsed whitespace, lowercased) must match
+  **exactly one** resident and **exactly one** user
+
+Anything ambiguous is deliberately left for manual linking. There is no fuzzy
+or partial matching - a wrong link would expose one resident's ledger to
+another, so the script errs toward doing nothing.
+
+### How to Run
+The file is split into three parts - run them in order:
+1. **STEP 1 (preview)** - changes nothing, lists what *would* be linked and
+   what would be skipped. Review this before continuing.
+2. **STEP 2 (apply)** - performs the linking.
+3. **STEP 3 (report)** - lists residents with no account, and accounts not
+   linked to any resident. Handle those from the Settings UI.
+
+Idempotent - re-running only links whatever is still unlinked.
+
+### Rollback (if needed)
+Clears every link (does not drop the column):
+```sql
+UPDATE residents SET user_id = NULL;
+```
+
+---
+
+## 7. Enable Row Level Security (`enable_rls.sql`)
+
+### Purpose
+RLS is off by default in this project, which means the anon key alone is enough
+to read, write or delete any row in any table. This script turns RLS on.
+
+### Scope (deliberately partial)
+- **Writes** (`INSERT`/`UPDATE`/`DELETE`) are locked to admins, except where
+  residents legitimately create their own rows (requests, community posts,
+  receipt requests).
+- **Reads** stay as permissive as they are today - any authenticated user can
+  read the tables the app already fetches wholesale and filters client-side.
+
+Tightening `residents`/`ledgers` reads to "own row or admin" is the natural
+next step, but it must wait until residents are actually linked via
+`user_id` (see scripts 5 and 6). Doing it before the backfill would lock every
+resident out of their own debt, since nobody is linked yet.
+
+### ⚠️ Before Running
+Test on a staging project first. Misconfigured policies can lock the app out
+entirely. Verify afterwards that a resident can still see their own ledger and
+that an admin can still record payments.
+
+### Rollback (if needed)
+```sql
+ALTER TABLE residents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ledgers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE community_posts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE info DISABLE ROW LEVEL SECURITY;
+ALTER TABLE receipt_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY;
+```
