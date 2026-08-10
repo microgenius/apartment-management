@@ -25,6 +25,7 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
+      user_id: resident.user_id,
       ledger: (ledgers || [])
         .filter(l => l.resident_id === resident.id)
         .map(l => ({
@@ -64,6 +65,7 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
+      user_id: resident.user_id,
       ledger: (ledgers || []).map(l => ({
         id: l.id,
         date: l.date,
@@ -76,7 +78,7 @@ export const residentsService = {
   },
 
   // Create new resident
-  async create(resident: Omit<Resident, 'id' | 'ledger'>): Promise<Resident> {
+  async create(resident: Omit<Resident, 'id' | 'ledger' | 'user_id'>): Promise<Resident> {
     const { data, error } = await supabase
       .from('residents')
       .insert({
@@ -98,7 +100,7 @@ export const residentsService = {
   },
 
   // Update resident
-  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger'>>): Promise<void> {
+  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger' | 'user_id'>>): Promise<void> {
     const { error } = await supabase
       .from('residents')
       .update(updates)
@@ -113,6 +115,26 @@ export const residentsService = {
       .from('residents')
       .delete()
       .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // Link a resident record to an auth user (opsiyonel — her resident'ın user'ı olmak zorunda değil)
+  async linkUser(residentId: number, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('residents')
+      .update({ user_id: userId })
+      .eq('id', residentId);
+
+    if (error) throw error;
+  },
+
+  // Unlink a resident record from its auth user
+  async unlinkUser(residentId: number): Promise<void> {
+    const { error } = await supabase
+      .from('residents')
+      .update({ user_id: null })
+      .eq('id', residentId);
 
     if (error) throw error;
   }

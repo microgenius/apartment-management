@@ -210,7 +210,7 @@ export const LoginPage: React.FC = () => {
         {/* Footer Info */}
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            © 2024 {t('login_footer')}
+            © {new Date().getFullYear()} {t('login_footer')}
           </p>
         </div>
       </div>

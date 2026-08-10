@@ -3,20 +3,23 @@ import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, 
 import type { SettingsViewProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService } from '../../services/userProfilesService';
+import { residentsService } from '../../services/residentsService';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ 
-  baseClasses, 
-  currentTheme, 
-  t, 
-  meetingDate, 
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  baseClasses,
+  currentTheme,
+  t,
+  meetingDate,
   setMeetingDate,
   monthlyDue,
   setMonthlyDue,
   debtStartDate,
   setDebtStartDate,
-  darkMode
+  darkMode,
+  residents,
+  refetchResidents
 }) => {
   const { user, createUser, refreshProfile } = useAuth();
   const [tempDate, setTempDate] = useState(meetingDate);
@@ -30,7 +33,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'resident' | 'admin'>('resident');
   const [newUserApartment, setNewUserApartment] = useState('');
+  const [newUserResidentId, setNewUserResidentId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Henüz bir kullanıcı hesabına bağlanmamış sakinler (link zorunlu değil, opsiyonel)
+  const unlinkedResidents = residents.filter((r) => !r.user_id);
 
   // Transfer Admin
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -84,7 +91,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     e.preventDefault();
     setIsCreating(true);
     try {
-      const { error } = await createUser(
+      const { error, userId } = await createUser(
         newUserEmail,
         newUserPassword,
         newUserName,
@@ -95,12 +102,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (error) {
         setErrorModal({ isOpen: true, title: 'Hata', message: 'Kullanıcı oluşturulurken hata: ' + error.message });
       } else {
+        if (userId && newUserResidentId) {
+          // Eşleştirme opsiyoneldi; seçilmişse sakin kaydını yeni hesaba bağla
+          await residentsService.linkUser(Number(newUserResidentId), userId);
+          refetchResidents();
+        }
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
         setNewUserEmail('');
         setNewUserPassword('');
         setNewUserName('');
         setNewUserRole('resident');
         setNewUserApartment('');
+        setNewUserResidentId('');
         await loadUsers();
       }
     } catch (error) {
@@ -327,6 +340,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder={t('placeholder_apartment')}
               />
             </div>
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('link_resident')}
+            </label>
+            <select
+              value={newUserResidentId}
+              onChange={(e) => setNewUserResidentId(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            >
+              <option value="">{t('link_resident_none')}</option>
+              {unlinkedResidents.map((r) => (
+                <option key={r.id} value={r.id}>{r.door} - {r.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>

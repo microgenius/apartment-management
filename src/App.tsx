@@ -55,19 +55,11 @@ export default function App() {
   }, [darkMode]);
   
   // Data States from Supabase
-  console.log('📊 App.tsx: Fetching data from hooks...');
-  const { residents, setResidents } = useResidents();
-  console.log('✅ Residents hook loaded:', residents.length, 'residents');
-  
+  const { residents, setResidents, refetch: refetchResidents } = useResidents();
   const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate } = useSettings();
-  console.log('✅ Settings hook loaded');
-  
   const { requests, setRequests } = useRequests();
-  console.log('✅ Requests hook loaded:', requests.length, 'requests');
-  
   const { communityPosts, setCommunityPosts } = useCommunityPosts();
-  console.log('✅ Community posts hook loaded:', communityPosts.length, 'posts');
-  
+
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   
@@ -187,9 +179,11 @@ export default function App() {
                 debtStartDate={debtStartDate}
                 setDebtStartDate={setDebtStartDate}
                 darkMode={darkMode}
+                residents={residents}
+                refetchResidents={refetchResidents}
               />
             )}
-            
+
             {activeTab === 'info' && (
               <InfoView 
                 baseClasses={baseClasses} 

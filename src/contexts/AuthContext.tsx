@@ -10,7 +10,7 @@ interface AuthContextType {
   userRole: 'resident' | 'admin' | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string) => Promise<{ error: Error | null }>;
+  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string) => Promise<{ error: Error | null; userId: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -30,33 +30,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadUserProfile = async (userId: string, force = false) => {
     // Check cache first (only if not forced)
     if (!force && profileCache.current[userId] !== undefined) {
-      console.log('✨ Using cached profile for:', userId);
       setUserProfile(profileCache.current[userId]);
       return;
     }
 
     // Prevent concurrent fetches for same user
     if (fetchingProfile.current[userId]) {
-      console.log('⏳ Already fetching profile for:', userId);
       return;
     }
 
-    console.log('🔄 loadUserProfile called for:', userId, force ? '(FORCE REFRESH)' : '');
     fetchingProfile.current[userId] = true;
-    
+
     try {
       // Add timeout to prevent hanging
       const profilePromise = userProfilesService.getProfile(userId);
-      const timeoutPromise = new Promise<null>((resolve) => 
+      const timeoutPromise = new Promise<null>((resolve) =>
         setTimeout(() => {
           console.warn('⏱️ Profile fetch timeout after 5 seconds - user_profiles table may not exist');
           resolve(null);
         }, 5000)
       );
-      
+
       const profile = await Promise.race([profilePromise, timeoutPromise]);
-      console.log('📦 Profile result from server:', profile);
-      
+
       // Only cache and set state if we got data from server
       if (profile !== null || force) {
         profileCache.current[userId] = profile;
@@ -76,18 +72,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    console.log('🔐 AuthContext: Starting auth initialization...');
-    
     // Check active session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('✅ Session fetched:', session ? 'User logged in' : 'No active session');
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        console.log('👤 Loading user profile for:', session.user.email);
         await loadUserProfile(session.user.id);
       }
-      console.log('✅ Setting loading to false');
       setLoading(false);
     }).catch((error) => {
       console.error('❌ Error getting session:', error);
@@ -96,17 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('🔄 Auth state changed:', _event);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        console.log('👤 Loading profile after auth change...');
         await loadUserProfile(session.user.id);
-        console.log('✅ Profile loaded after auth change');
       } else {
         setUserProfile(null);
       }
-      console.log('✅ Setting loading to FALSE after auth change');
       setLoading(false);
     });
 
@@ -139,22 +126,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
 
-      if (error) return { error };
+      if (error) return { error, userId: null };
 
       // Profile'ı manuel oluştur (trigger çalışmayabilir)
       if (data.user) {
         await userProfilesService.createProfile(data.user.id, fullName, role, apartmentInfo);
       }
 
-      return { error: null };
+      return { error: null, userId: data.user?.id ?? null };
     } catch (error) {
-      return { error: error as Error };
+      return { error: error as Error, userId: null };
     }
   };
 
   const refreshProfile = async () => {
     if (user) {
-      console.log('🔄 Refreshing profile - clearing state and cache');
       // Clear state first to ensure we don't use stale data
       setUserProfile(null);
       // Clear cache and force refresh from server

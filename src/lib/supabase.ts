@@ -14,31 +14,34 @@ export type Database = {
       residents: {
         Row: {
           id: number;
-          door: number;
+          door: string;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
           status: 'Dolu' | 'Boş';
+          user_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: number;
-          door: number;
+          door: string;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
           status: 'Dolu' | 'Boş';
+          user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: number;
-          door?: number;
+          door?: string;
           name?: string;
           type?: 'Kiracı' | 'Ev Sahibi';
           phone?: string;
           status?: 'Dolu' | 'Boş';
+          user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
