@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Mail, Lock, AlertCircle, Loader2, Globe, Palette } from 'lucide-react';
+import { Building2, User, Lock, AlertCircle, Loader2, Globe, Palette } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cookies } from '../../utils/cookies';
 import { TRANSLATIONS } from '../../constants/translations';
@@ -8,7 +8,8 @@ import type { Language, ThemeName } from '../../types';
 import { createTranslator } from '../../utils/helpers';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  // Email ya da telefon numarası olabilir - ayrımı AuthContext yapıyor
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,11 +44,11 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(identifier, password);
       if (error) {
-        setError(t('login_error'));
+        setError(error.message === 'INVALID_PHONE' ? t('login_error_phone') : t('login_error'));
       }
-    } catch (err) {
+    } catch {
       setError(t('login_error_generic'));
     } finally {
       setLoading(false);
@@ -139,22 +140,22 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {/* Email */}
+            {/* Email veya Telefon */}
             <div className="mb-5">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('email_label')}
+              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+                {t('identifier_label')}
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  id="identifier"
+                  name="identifier"
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder={t('email_placeholder')}
+                  placeholder={t('identifier_placeholder')}
                   required
                 />
               </div>

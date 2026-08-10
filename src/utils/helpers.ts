@@ -129,6 +129,34 @@ export const getBaseClasses = (darkMode: boolean): BaseClasses => ({
 });
 
 /**
+ * Girdinin email mi telefon mu olduğunu ayırt eder.
+ * Supabase signInWithPassword email ve telefonu ayrı alanlarda bekliyor.
+ */
+export const isEmail = (input: string): boolean => input.includes('@');
+
+/**
+ * Telefon numarasını Supabase'in beklediği E.164 formatına çevirir.
+ * Kabul edilen girdiler (hepsi aynı numara):
+ *   "0507 231 84 20", "05072318420", "5072318420",
+ *   "905072318420", "+90 507 231 84 20"
+ * Ülke kodu açıkça verilmemişse Türkiye (+90) varsayılır.
+ * Çevrilemeyen girdide null döner - çağıran taraf kullanıcıya hata gösterir.
+ */
+export const toE164 = (input: string): string | null => {
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, '');
+
+  // Ülke kodu zaten yazılmışsa olduğu gibi kabul et (yurt dışı numarası olabilir)
+  if (trimmed.startsWith('+')) return digits.length >= 10 ? `+${digits}` : null;
+
+  if (digits.length === 10) return `+90${digits}`;                              // 5072318420
+  if (digits.length === 11 && digits.startsWith('0')) return `+90${digits.slice(1)}`;  // 05072318420
+  if (digits.length === 12 && digits.startsWith('90')) return `+${digits}`;     // 905072318420
+
+  return null;
+};
+
+/**
  * Çeviri fonksiyonu oluşturur
  * @param translations - Çeviri objesi
  * @param lang - Dil

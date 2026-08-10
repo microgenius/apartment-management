@@ -29,6 +29,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // New User Form
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'resident' | 'admin'>('resident');
@@ -96,11 +97,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         newUserPassword,
         newUserName,
         newUserRole,
-        newUserApartment || undefined
+        newUserApartment || undefined,
+        newUserPhone || undefined
       );
 
       if (error) {
-        setErrorModal({ isOpen: true, title: 'Hata', message: 'Kullanıcı oluşturulurken hata: ' + error.message });
+        const message =
+          error.message === 'NO_IDENTIFIER' ? t('create_user_no_identifier')
+          : error.message === 'INVALID_PHONE' ? t('login_error_phone')
+          : 'Kullanıcı oluşturulurken hata: ' + error.message;
+        setErrorModal({ isOpen: true, title: 'Hata', message });
       } else {
         if (userId && newUserResidentId) {
           // Eşleştirme opsiyoneldi; seçilmişse sakin kaydını yeni hesaba bağla
@@ -109,6 +115,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
         setNewUserEmail('');
+        setNewUserPhone('');
         setNewUserPassword('');
         setNewUserName('');
         setNewUserRole('resident');
@@ -300,7 +307,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
-                {t('email')} {t('required_field')}
+                {t('email')}
               </label>
               <input
                 type="email"
@@ -308,9 +315,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setNewUserEmail(e.target.value)}
                 className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
                 placeholder={t('placeholder_email')}
-                required
               />
             </div>
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('phone')}
+            </label>
+            <input
+              type="tel"
+              value={newUserPhone}
+              onChange={(e) => setNewUserPhone(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              placeholder={t('placeholder_phone')}
+            />
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('identifier_hint')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
