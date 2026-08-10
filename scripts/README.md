@@ -318,3 +318,48 @@ ALTER TABLE info DISABLE ROW LEVEL SECURITY;
 ALTER TABLE receipt_requests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY;
 ```
+
+---
+
+## 8. Multiple Accounts per Resident (`move_link_to_user_profiles.sql`)
+
+### Purpose
+Moves the resident↔account link from `residents.user_id` to
+`user_profiles.resident_id`, so **one flat can have several accounts** - the
+owner, their spouse and the tenant can each log in and all see the same ledger.
+
+### Why the column had to move
+`residents.user_id` sits on the resident row, so it can only ever hold one
+account. Dropping its unique index would have allowed the *opposite* of what
+we want (many flats sharing one account). Putting `resident_id` on
+`user_profiles` gives the correct shape: many accounts → one flat, while each
+account still points at exactly one flat.
+
+**Run after** `add_residents_user_id.sql` (and `backfill_residents_user_id.sql`
+if you used it). Existing links are carried over automatically. Idempotent.
+
+### How to Run
+Run the steps in order:
+1. **STEP 1** - adds `user_profiles.resident_id` (nullable, deliberately *not*
+   unique) plus an index.
+2. **STEP 2** - copies every existing `residents.user_id` link across.
+3. **STEP 3** - verification query. Every old link must show `eslesti = true`.
+   If any row says `false`, stop and investigate.
+4. **STEP 4** - drops the old `residents.user_id` column. **Commented out on
+   purpose**: uncomment and run only once STEP 3 looks right, because dropping
+   it destroys the old links.
+5. **STEP 5** - reports accounts with no flat, and each flat's account count
+   (0 is normal for empty flats and residents who never signed up).
+
+### After Running
+- A resident sees their ledger via `user_profiles.resident_id`; the old name
+  match remains only as a fallback for accounts an admin hasn't linked yet.
+- **Settings > Yeni Kullanıcı Oluştur > Sakin Kaydına Bağla** now lists *all*
+  flats, with the current account count next to each, instead of hiding flats
+  that already have an account.
+
+### Rollback (if needed)
+Only possible while STEP 4 has not been run:
+```sql
+UPDATE user_profiles SET resident_id = NULL;
+```

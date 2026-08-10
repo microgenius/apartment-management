@@ -27,7 +27,6 @@ export interface Resident {
   type: 'Kiracı' | 'Ev Sahibi';
   phone: string;
   status: 'Dolu' | 'Boş';
-  user_id: string | null; // Bağlı auth kullanıcısı (login hesabı olmayabilir)
   ledger: LedgerItem[];
 }
 

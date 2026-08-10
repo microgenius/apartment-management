@@ -5,6 +5,12 @@ export interface UserProfile {
   full_name: string;
   role: 'resident' | 'admin';
   apartment_info: string | null;
+  /**
+   * Bağlı olduğu sakin kaydı. Bir sakinin birden fazla hesabı olabilir
+   * (ev sahibi + eş + kiracı), ama her hesap tek bir daireye bakar.
+   * null: henüz bir daireye bağlanmamış.
+   */
+  resident_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,7 +50,7 @@ export const userProfilesService = {
     return data || [];
   },
 
-  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string): Promise<UserProfile | null> {
+  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, residentId?: number | null): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('user_profiles')
       .insert({
@@ -52,6 +58,7 @@ export const userProfilesService = {
         full_name: fullName,
         role,
         apartment_info: apartmentInfo || null,
+        resident_id: residentId ?? null,
       })
       .select()
       .single();
@@ -102,6 +109,52 @@ export const userProfilesService = {
       console.error('Error transferring admin:', error);
       return false;
     }
+  },
+
+  // Bir hesabı sakin kaydına bağlar. Aynı sakine birden fazla hesap
+  // bağlanabilir (kısıt yok), her hesap tek bir sakine bakar.
+  async linkResident(userId: string, residentId: number): Promise<boolean> {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ resident_id: residentId })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error linking resident:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  async unlinkResident(userId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ resident_id: null })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error unlinking resident:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  // Bir sakine bağlı tüm hesaplar
+  async getByResident(residentId: number): Promise<UserProfile[]> {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('full_name');
+
+    if (error) {
+      console.error('Error fetching profiles by resident:', error);
+      return [];
+    }
+
+    return data || [];
   },
 
   async deleteProfile(userId: string): Promise<boolean> {

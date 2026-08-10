@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign } from 'lucide-react';
 import type { SettingsViewProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { userProfilesService } from '../../services/userProfilesService';
-import { residentsService } from '../../services/residentsService';
+import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
 import { DIAL_CODES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
 import { SuccessModal } from '../modals/SuccessModal';
@@ -42,11 +41,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newUserResidentId, setNewUserResidentId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // Henüz bir kullanıcı hesabına bağlanmamış sakinler (link zorunlu değil, opsiyonel)
-  const unlinkedResidents = residents.filter((r) => !r.user_id);
-
   // Transfer Admin
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [selectedNewAdmin, setSelectedNewAdmin] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
@@ -75,10 +71,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     loadUsers();
   }, []);
 
+  // Tüm profiller tutuluyor: daire başına hesap sayısını göstermek için
+  // admin'ler de gerekli. Yöneticilik devri listesi kullanıldığı yerde filtreleniyor.
   const loadUsers = async () => {
-    const users = await userProfilesService.getAllProfiles();
-    setAllUsers(users.filter(u => u.role === 'resident'));
+    setAllUsers(await userProfilesService.getAllProfiles());
   };
+
+  const transferCandidates = allUsers.filter(u => u.role === 'resident');
 
   const handleSaveDate = async () => {
     setIsSaving(true);
@@ -115,8 +114,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setErrorModal({ isOpen: true, title: 'Hata', message });
       } else {
         if (userId && newUserResidentId) {
-          // Eşleştirme opsiyoneldi; seçilmişse sakin kaydını yeni hesaba bağla
-          await residentsService.linkUser(Number(newUserResidentId), userId);
+          // Eşleştirme opsiyonel; seçilmişse hesabı sakin kaydına bağla.
+          // Aynı daireye başka hesaplar bağlıysa sorun değil, hepsi birlikte yaşar.
+          await userProfilesService.linkResident(userId, Number(newUserResidentId));
           refetchResidents();
         }
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
@@ -391,10 +391,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
             >
               <option value="">{t('link_resident_none')}</option>
-              {unlinkedResidents.map((r) => (
-                <option key={r.id} value={r.id}>{r.door} - {r.name}</option>
-              ))}
+              {/* Bağlı olanlar da listede: bir daireye birden fazla hesap bağlanabilir
+                  (ev sahibi + eş + kiracı). Kaç hesabı olduğu parantezde gösteriliyor. */}
+              {residents.map((r) => {
+                const count = allUsers.filter((u) => u.resident_id === r.id).length;
+                return (
+                  <option key={r.id} value={r.id}>
+                    {r.door} - {r.name}{count > 0 ? ` (${count} ${t('linked_accounts')})` : ''}
+                  </option>
+                );
+              })}
             </select>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('link_resident_hint')}</p>
           </div>
 
           <div>
@@ -462,7 +470,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
               >
                 <option value="">{t('select_user')}</option>
-                {allUsers.map(user => (
+                {transferCandidates.map(user => (
                   <option key={user.id} value={user.id}>
                     {user.full_name} {user.apartment_info ? `(${user.apartment_info})` : ''}
                   </option>
@@ -484,7 +492,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {t('confirm_transfer')}
               </p>
               <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
-                {allUsers.find(u => u.id === selectedNewAdmin)?.full_name} {t('transfer_confirm_msg')}
+                {transferCandidates.find(u => u.id === selectedNewAdmin)?.full_name} {t('transfer_confirm_msg')}
               </p>
             </div>
             <div className="flex gap-4">

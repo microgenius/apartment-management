@@ -43,11 +43,12 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   );
 
   // Resident view data - must be called before any conditional returns (React hooks rule)
-  // Prefer the real user_id link; fall back to name matching only for residents
-  // that haven't been linked to an account yet (see scripts/add_residents_user_id.sql)
-  const myResidentRecord = user
-    ? residents.find((r) => r.user_id === user.id) ?? residents.find((r) => r.name === userProfile?.full_name)
-    : undefined;
+  // Prefer the explicit link on the profile; fall back to name matching only for
+  // accounts an admin hasn't linked yet (see scripts/move_link_to_user_profiles.sql).
+  // Birden fazla hesap aynı daireye bağlı olabilir - hepsi aynı kaydı görür.
+  const myResidentRecord =
+    residents.find((r) => r.id === userProfile?.resident_id) ??
+    residents.find((r) => r.name === userProfile?.full_name);
   const myFullLedgerUnsorted = myResidentRecord ? getResidentLedgerWithPlanning(myResidentRecord) : [];
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
   
