@@ -27,7 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentTheme, 
   t,
   onLogoutClick,
-  onPasswordClick
+  onPasswordClick,
+  flatLabel
 }) => {
   const { userProfile, user } = useAuth();
 
@@ -100,9 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <User size={20} className="mr-3" />
           <div className="overflow-hidden">
             <p className="text-sm font-bold truncate">{displayName}</p>
-            {userProfile?.apartment_info && (
-              <p className="text-xs opacity-70">{userProfile.apartment_info}</p>
-            )}
+            {flatLabel && <p className="text-xs opacity-70">{flatLabel}</p>}
           </div>
         </div>
         <button

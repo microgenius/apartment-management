@@ -668,7 +668,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                     await receiptRequestsService.create(
                       user.id,
                       userProfile?.full_name || 'Kullanıcı',
-                      userProfile?.apartment_info || null,
+                      myResidentRecord ? `${t('flat')} ${myResidentRecord.door}` : null,
                       amount,
                       residentPaymentNote
                     );

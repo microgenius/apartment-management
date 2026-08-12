@@ -18,7 +18,7 @@ interface AuthContextType {
   signIn: (identifier: string, password: string, dialCode?: string) => Promise<{ error: Error | null }>;
   createUser: (
     email: string, password: string, fullName: string, role: 'resident' | 'admin',
-    apartmentInfo?: string, phone?: string, dialCode?: string,
+    phone?: string, dialCode?: string,
     extra?: { residentId: number; contactType: 'owner' | 'tenant' | 'emergency' | 'other'; contactPhone: string; isPrimary: boolean }
   ) => Promise<{ error: Error | null; userId: string | null }>;
   signOut: () => Promise<void>;
@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createUser = async (
     email: string, password: string, fullName: string, role: 'resident' | 'admin',
-    apartmentInfo?: string, phone?: string, dialCode?: string,
+    phone?: string, dialCode?: string,
     extra?: { residentId: number; contactType: 'owner' | 'tenant' | 'emergency' | 'other'; contactPhone: string; isPrimary: boolean }
   ) => {
     try {
@@ -164,7 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           password,
           fullName,
           role,
-          apartmentInfo: apartmentInfo ?? null,
           residentId: extra?.residentId,
           contactType: extra?.contactType ?? 'owner',
           contactPhone: extra?.contactPhone ?? normalizedPhone ?? '',

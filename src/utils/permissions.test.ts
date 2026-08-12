@@ -9,7 +9,6 @@ const profile = (over: Partial<UserProfile>): UserProfile => ({
   id: 'u1',
   full_name: 'Test',
   role: 'resident',
-  apartment_info: null,
   resident_id: null,
   duty: null,
   duty_since: null,
