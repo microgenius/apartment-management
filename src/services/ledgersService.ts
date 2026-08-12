@@ -89,5 +89,41 @@ export const ledgersService = {
       .eq('id', id);
 
     if (error) throw error;
+  },
+
+  /**
+   * Tahsilatı tek veritabanı işleminde uygular: ledger satırları ve kasa
+   * kaydı birlikte yazılır ya da hiçbiri yazılmaz.
+   *
+   * Önceden bunlar client'tan tek tek yapılıyordu; arada oturum düşünce
+   * dairenin borcu kapanmış ama kasaya para girmemiş oluyordu, yönetici
+   * tekrar deneyince de ledger'da mükerrer kayıt çıkıyordu.
+   */
+  async recordPayment(
+    residentId: number,
+    amount: number,
+    payerName: string,
+    ops: LedgerOperation[]
+  ): Promise<void> {
+    const { error } = await supabase.rpc('record_dues_payment', {
+      p_resident_id: residentId,
+      p_amount: amount,
+      p_payer: payerName,
+      p_ops: ops
+    });
+
+    if (error) throw error;
   }
 };
+
+/** Tahsilatın ledger'a yansıması: mevcut satırı güncelle ya da yeni ekle */
+export type LedgerOperation =
+  | { op: 'update'; id: string; status: LedgerItem['status']; paid_amount: number }
+  | {
+      op: 'insert';
+      date: string;
+      description: string;
+      amount: number;
+      status: LedgerItem['status'];
+      paid_amount: number;
+    };
