@@ -3,7 +3,7 @@ import { Wallet, TrendingUp, TrendingDown, Plus, Trash2, FileText, Loader2, X, P
 import type { FinanceViewProps } from '../../types';
 import { transactionsService, type Transaction, type TransactionType } from '../../services/transactionsService';
 import { sumTransactions, filterByDateRange } from '../../utils/transactions';
-import { LOCALES } from '../../utils/helpers';
+import { LOCALES, todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -15,7 +15,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Transaction | null>(null);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });

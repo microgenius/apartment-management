@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { todayISO } from '../utils/helpers';
 
 export interface UserProfile {
   id: string;
@@ -162,7 +163,7 @@ export const userProfilesService = {
 
     const { error } = await supabase
       .from('user_profiles')
-      .update({ duty, duty_since: new Date().toISOString().split('T')[0] })
+      .update({ duty, duty_since: todayISO() })
       .eq('id', userId);
 
     if (error) {
