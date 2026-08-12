@@ -75,8 +75,11 @@ Deno.serve(async (req) => {
   // 4) Sıfırla
   const { error } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
   if (error) {
-    console.error('reset failed:', error.message);
-    return json({ error: 'reset_failed' }, 500);
+    // Sebebi çağırana da döndürüyoruz: buraya ancak yetki kontrolünden geçmiş
+    // bir yönetici gelebiliyor, dolayısıyla bilgi sızdırma riski yok. Sebebi
+    // yutmak, sorunu yalnızca loglara bakabilen birinin çözebilmesi demekti.
+    console.error('reset failed:', error.message, error.status);
+    return json({ error: 'reset_failed', detail: error.message }, 500);
   }
 
   return json({ ok: true });
