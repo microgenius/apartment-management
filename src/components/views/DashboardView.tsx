@@ -63,10 +63,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
               
-              <span className={`font-bold text-2xl mb-1 ${isAdmin ? (totalDebt > 0 ? 'text-red-500' : 'text-green-600') : baseClasses.textMain}`}>
+              <span className={`font-bold text-2xl ${isAdmin ? (totalDebt > 0 ? 'text-red-500' : 'text-green-600') : baseClasses.textMain}`}>
                 No: {apt.door}
               </span>
-              
+
+              {/* Eski numara: sakinlerin çoğu ve eski defterler hâlâ bunu kullanıyor */}
+              <span className={`text-[11px] mb-1 h-4 ${baseClasses.textSub}`}>
+                {apt.old_door ? `${t('old_door_short')}: ${apt.old_door}` : ''}
+              </span>
+
               <div className="flex flex-col items-center text-center w-full">
                 <span className={`text-sm font-medium leading-tight px-1 ${baseClasses.textMain}`}>
                   {apt.name}
