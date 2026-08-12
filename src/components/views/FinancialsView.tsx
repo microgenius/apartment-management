@@ -136,7 +136,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
       // transactions siteye para girdiğini kaydeder. İkisi ayrı defter.
       await transactionsService.recordDuesIncome(
         selectedDebtor.id,
-        `${selectedDebtor.name} (${t('flat')} ${selectedDebtor.door})`,
+        selectedDebtor.name,
         paymentAmount
       );
 

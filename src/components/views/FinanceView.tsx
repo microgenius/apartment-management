@@ -6,12 +6,19 @@ import { sumTransactions, filterByDateRange } from '../../utils/transactions';
 import { LOCALES, todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { ErrorModal } from '../modals/ErrorModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { canManageOthers } from '../../utils/permissions';
 
 const money = (n: number) => `${n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
   transactions, refetchTransactions, baseClasses, currentTheme, t, darkMode, lang
 }) => {
+  const { userProfile } = useAuth();
+  // Sakinler kasayı görebiliyor ama değiştiremiyor: ekleme formu ve silme
+  // düğmeleri yalnızca yönetici/yardımcısına açık. Asıl koruma RLS'te,
+  // buradaki gizleme sadece arayüzü sadeleştiriyor.
+  const canEdit = canManageOthers(userProfile);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -87,7 +94,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <span className={`text-sm font-bold ${color}`}>{money(Number(item.amount))}</span>
             {/* Otomatik aidat kayıtları elle silinmiyor: karşılığı ledgers'ta
                 duruyor, buradan silmek kasayı tahsilat kaydıyla çelişkiye sokar */}
-            {item.source === 'manual' && (
+            {canEdit && item.source === 'manual' && (
               <button onClick={() => setConfirmDelete(item)} aria-label={t('delete')} className="text-slate-400 hover:text-red-500">
                 <Trash2 size={15} />
               </button>
@@ -130,7 +137,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </div>
       </div>
 
-      {/* Yeni kayıt */}
+      {/* Yeni kayıt - yalnızca yönetici ve yardımcısı */}
+      {canEdit && (
       <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
         <h3 className={`font-bold mb-4 flex items-center ${baseClasses.textMain}`}>
           <Plus size={18} className="mr-2" /> {t('add_transaction')}
@@ -179,6 +187,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           </div>
         </form>
       </div>
+      )}
 
       {/* Listeler */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -178,7 +178,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'finance' && canManageOthers(userProfile) && (
+            {activeTab === 'finance' && (
               <FinanceView
                 transactions={transactions}
                 refetchTransactions={refetchTransactions}

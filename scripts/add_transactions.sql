@@ -39,15 +39,20 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- ==========================================
 -- RLS
 -- ==========================================
--- Kasa defterini yalnızca yönetici ve yardımcısı görebilir ve yazabilir.
--- Sakinlerin bu tabloya erişimi yok - menü de onlara görünmüyor.
+-- Kasa defterini HERKES görebilir (şeffaflık: sakinler sitenin parasının
+-- nereye gittiğini takip edebilmeli), ama yalnızca yönetici ve yardımcısı
+-- yazabilir. Okuma ile yazmanın ayrılması bilinçli.
+--
+-- Bu yüzden otomatik aidat kayıtlarının açıklamasında daire numarası
+-- tutulmuyor - kayıtlar artık tüm sakinlere görünüyor.
+--
 -- has_duty() ve is_admin() enable_rls.sql'de tanımlanıyor; bu betiği
 -- ondan SONRA çalıştırın.
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "transactions_select" ON transactions;
 CREATE POLICY "transactions_select" ON transactions FOR SELECT TO authenticated
-  USING (is_admin() OR has_duty());
+  USING (true);
 
 DROP POLICY IF EXISTS "transactions_insert" ON transactions;
 CREATE POLICY "transactions_insert" ON transactions FOR INSERT TO authenticated
