@@ -7,6 +7,7 @@ import { THEMES } from '../../constants/themes';
 import type { Language, ThemeName } from '../../types';
 import { createTranslator, DIAL_CODES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
+import { PasswordInput } from '../PasswordInput';
 
 export const LoginPage: React.FC = () => {
   // Kullanıcı giriş yöntemini kendi seçiyor. Önceden tek alan vardı ve
@@ -233,21 +234,19 @@ export const LoginPage: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 {t('password_label')}
               </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder={t('password_placeholder')}
-                  required
-                  minLength={6}
-                />
-              </div>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={setPassword}
+                placeholder={t('password_placeholder')}
+                required
+                minLength={6}
+                t={t}
+                leftIcon={<Lock className="text-gray-400" size={20} />}
+                className="w-full py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
             </div>
 
             {/* Submit Button */}

@@ -84,6 +84,11 @@ export default function App() {
   const t = createTranslator(TRANSLATIONS, lang);
   const baseClasses = getBaseClasses(darkMode);
 
+  // Kenar çubuğunda gösterilen daire: elle yazılan alan yerine bağlı
+  // daire kaydından türetiliyor
+  const myFlat = residents.find((r) => r.id === userProfile?.resident_id);
+  const myFlatLabel = myFlat ? `${t('flat')} ${myFlat.door}` : undefined;
+
   // Helper Functions with Dependencies
   const getResidentLedgerWithPlanningBound = (resident: Resident) => 
     getResidentLedgerWithPlanning(resident, meetingDate, lang, monthlyDue, debtStartDate);
@@ -102,6 +107,7 @@ export default function App() {
           darkMode={darkMode}
           onLogoutClick={() => setShowLogoutModal(true)}
           onPasswordClick={() => setShowPasswordModal(true)}
+          flatLabel={myFlatLabel}
         />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">

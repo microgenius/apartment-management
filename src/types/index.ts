@@ -119,6 +119,9 @@ export interface SidebarProps extends Omit<CommonProps, 'darkMode'> {
   darkMode: boolean;
   onLogoutClick: () => void;
   onPasswordClick: () => void;
+  /** Bağlı dairenin kapı numarası. Daire bilgisi elle yazılmıyor,
+   *  user_profiles.resident_id üzerinden türetiliyor. */
+  flatLabel?: string;
 }
 
 export interface HeaderProps {

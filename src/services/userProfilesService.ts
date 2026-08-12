@@ -5,7 +5,6 @@ export interface UserProfile {
   id: string;
   full_name: string;
   role: 'resident' | 'admin';
-  apartment_info: string | null;
   /**
    * Bağlı olduğu sakin kaydı. Bir sakinin birden fazla hesabı olabilir
    * (ev sahibi + eş + kiracı), ama her hesap tek bir daireye bakar.
@@ -58,14 +57,13 @@ export const userProfilesService = {
     return data || [];
   },
 
-  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, residentId?: number | null, phone?: string | null): Promise<UserProfile | null> {
+  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', residentId?: number | null, phone?: string | null): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('user_profiles')
       .insert({
         id: userId,
         full_name: fullName,
         role,
-        apartment_info: apartmentInfo || null,
         resident_id: residentId ?? null,
         phone: phone ?? null,
       })

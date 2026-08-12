@@ -34,7 +34,6 @@ interface Body {
   password: string;
   fullName: string;
   role: 'resident' | 'admin';
-  apartmentInfo?: string | null;
   residentId: number;
   contactType: 'owner' | 'tenant' | 'emergency' | 'other';
   contactPhone: string;
@@ -106,7 +105,6 @@ Deno.serve(async (req) => {
     id: userId,
     full_name: body.fullName,
     role: body.role,
-    apartment_info: body.apartmentInfo ?? null,
     resident_id: body.residentId,
     phone: body.phone ?? null
   });

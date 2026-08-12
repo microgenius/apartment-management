@@ -9,6 +9,7 @@ import { COUNTRIES } from '../../constants/countries';
 import { isAdmin } from '../../utils/permissions';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
+import { PasswordInput } from '../PasswordInput';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   baseClasses,
@@ -43,7 +44,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'resident' | 'admin'>('resident');
-  const [newUserApartment, setNewUserApartment] = useState('');
   const [newUserResidentId, setNewUserResidentId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -84,6 +84,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const transferCandidates = allUsers.filter(u => u.role === 'resident');
+
+  // Daire bilgisi artık elle yazılmıyor; bağlı daire kaydından türetiliyor
+  const flatLabel = (residentId: number | null) => {
+    const flat = residents.find((r) => r.id === residentId);
+    return flat ? `(${flat.door})` : '';
+  };
 
   // Görev atama (yönetici / yardımcısı). Görevi olan daireden aidat alınmaz.
   const [savingDuty, setSavingDuty] = useState<ResidentDuty | null>(null);
@@ -191,7 +197,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         newUserPassword,
         newUserName,
         newUserRole,
-        newUserApartment || undefined,
         newUserPhone || undefined,
         newUserDialCode,
         {
@@ -227,7 +232,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setNewUserPassword('');
         setNewUserName('');
         setNewUserRole('resident');
-        setNewUserApartment('');
         setNewUserResidentId('');
         await loadUsers();
       }
@@ -460,26 +464,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
                 {t('password')} {t('required_field')}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
+                onChange={setNewUserPassword}
                 className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
                 placeholder={t('min_password')}
                 minLength={6}
                 required
-              />
-            </div>
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
-                {t('apartment_info')}
-              </label>
-              <input
-                type="text"
-                value={newUserApartment}
-                onChange={(e) => setNewUserApartment(e.target.value)}
-                className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
-                placeholder={t('placeholder_apartment')}
+                autoComplete="new-password"
+                t={t}
+                toggleClassName={baseClasses.textSub}
               />
             </div>
           </div>
@@ -626,14 +620,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               );
             })}
           </select>
-          <input
-            type="text"
+          <PasswordInput
             value={resetPassword}
-            onChange={(e) => setResetPassword(e.target.value)}
+            onChange={setResetPassword}
             placeholder={t('new_password')}
             minLength={6}
             required
+            autoComplete="new-password"
+            t={t}
             className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            toggleClassName={baseClasses.textSub}
           />
           <button
             type="submit"
@@ -674,7 +670,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <option value="">{t('select_user')}</option>
                 {transferCandidates.map(user => (
                   <option key={user.id} value={user.id}>
-                    {user.full_name} {user.apartment_info ? `(${user.apartment_info})` : ''}
+                    {user.full_name} {flatLabel(user.resident_id)}
                   </option>
                 ))}
               </select>
