@@ -107,6 +107,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <h3 className={`text-xl font-bold ${baseClasses.textMain}`}>
               {t('flat')} {selectedApartment.door}
             </h3>
+            {selectedApartment.old_door && (
+              <p className={`text-xs ${baseClasses.textSub}`}>
+                {t('old_door')}: {selectedApartment.old_door}
+              </p>
+            )}
             <p className={baseClasses.textSub}>
               {selectedApartment.status === 'Boş' ? `${t('owner')}` : t('resident')}
             </p>

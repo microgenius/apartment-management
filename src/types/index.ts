@@ -26,6 +26,9 @@ export type ResidentDuty = 'manager' | 'assistant';
 export interface Resident {
   id: number;
   door: string;
+  /** Numaralandırma değişmeden önceki daire no. Eski listelerle/defterlerle
+   *  eşleştirmek için tutuluyor; boş olabilir. */
+  old_door: string | null;
   name: string;
   type: 'Kiracı' | 'Ev Sahibi';
   phone: string;

@@ -36,6 +36,7 @@ export const residentsService = {
     return residents.map(resident => ({
       id: resident.id,
       door: resident.door,
+      old_door: resident.old_door,
       name: resident.name,
       type: resident.type,
       phone: resident.phone,
@@ -84,6 +85,7 @@ export const residentsService = {
     return {
       id: resident.id,
       door: resident.door,
+      old_door: resident.old_door,
       name: resident.name,
       type: resident.type,
       phone: resident.phone,
@@ -107,6 +109,7 @@ export const residentsService = {
       .from('residents')
       .insert({
         door: resident.door,
+        old_door: resident.old_door,
         name: resident.name,
         type: resident.type,
         phone: resident.phone,

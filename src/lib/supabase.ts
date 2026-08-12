@@ -15,6 +15,7 @@ export type Database = {
         Row: {
           id: number;
           door: string;
+          old_door: string | null;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           id?: number;
           door: string;
+          old_door?: string | null;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
@@ -35,6 +37,7 @@ export type Database = {
         Update: {
           id?: number;
           door?: string;
+          old_door?: string | null;
           name?: string;
           type?: 'Kiracı' | 'Ev Sahibi';
           phone?: string;
