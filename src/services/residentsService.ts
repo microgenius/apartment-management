@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Resident, LedgerItem, ResidentDuty } from '../types';
+import { sortByOldDoor } from '../utils/helpers';
 
 export const residentsService = {
   // Get all residents with their ledgers
@@ -33,7 +34,7 @@ export const residentsService = {
       }
     });
 
-    return residents.map(resident => ({
+    return sortByOldDoor(residents.map(resident => ({
       id: resident.id,
       door: resident.door,
       old_door: resident.old_door,
@@ -53,7 +54,7 @@ export const residentsService = {
           status: l.status as LedgerItem['status'],
           paid_amount: l.paid_amount ?? undefined
         }))
-    }));
+    })));
   },
 
   // Get single resident by ID

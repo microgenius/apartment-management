@@ -108,7 +108,6 @@ export interface CommonProps {
 export interface SidebarProps extends Omit<CommonProps, 'darkMode'> {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  userRole: UserRole;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
   darkMode: boolean;

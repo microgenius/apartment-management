@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import type { SidebarProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageOthers } from '../../utils/permissions';
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
-  setActiveTab, 
-  userRole, 
-  isSidebarOpen, 
+  setActiveTab,
+  isSidebarOpen,
   setIsSidebarOpen, 
   baseClasses, 
   currentTheme, 
@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
       
       <nav className="p-4 mt-4">
-        {['dashboard', 'financials', 'community', 'requests', 'info', ...(userRole === 'admin' ? ['settings'] : [])].map(tab => (
+        {['dashboard', 'financials', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['settings'] : [])].map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 

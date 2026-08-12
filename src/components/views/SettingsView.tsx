@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
 import { DIAL_CODES, LOCALES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
+import { isAdmin } from '../../utils/permissions';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -23,7 +24,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   refetchResidents,
   lang
 }) => {
-  const { user, createUser, refreshProfile } = useAuth();
+  const { user, userProfile, createUser, refreshProfile } = useAuth();
+  // Görev atama ve yöneticilik devri yalnızca admin'de: aksi halde yardımcı
+  // kendini yönetici yapıp yetki yükseltebilirdi.
+  const adminOnly = isAdmin(userProfile);
   const [tempDate, setTempDate] = useState(meetingDate);
   const [isSaving, setIsSaving] = useState(false);
   const [tempStartDate, setTempStartDate] = useState(debtStartDate);
@@ -506,7 +510,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </form>
       </div>
 
-      {/* Site Görevleri - görevi olan daireden aidat alınmaz */}
+      {/* Site Görevleri - görevi olan daireden aidat alınmaz.
+          Yalnızca admin: yetki yükseltmeyi engellemek için. */}
+      {adminOnly && (
       <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
         <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
           <ShieldCheck className="mr-2" size={20} />
@@ -552,8 +558,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
+      )}
+
       {/* Şifre Sıfırlama - kullanıcı kendi şifresini kenar çubuğundan değiştirir,
-          burası yalnızca BAŞKASININ şifresi için (unutulduğunda) */}
+          burası yalnızca BAŞKASININ şifresi için (unutulduğunda).
+          Yönetici ve yardımcısı yapabilir. */}
       <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
         <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
           <KeyRound className="mr-2" size={20} />
@@ -598,7 +607,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <p className={`text-xs mt-2 ${baseClasses.textSub}`}>{t('reset_password_note')}</p>
       </div>
 
-      {/* Transfer Admin Rights */}
+      {/* Transfer Admin Rights - yalnızca admin */}
+      {adminOnly && (
       <div className={`p-6 rounded-xl border ${darkMode ? 'border-orange-900/30 bg-orange-900/10' : 'border-orange-200 bg-orange-50'}`}>
         <h3 className={`font-bold text-lg mb-4 flex items-center ${darkMode ? 'text-orange-400' : 'text-orange-700'}`}>
           <UserCog className="mr-2" size={20} />
@@ -667,6 +677,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Modals */}
       <SuccessModal

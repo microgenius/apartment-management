@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Language, ThemeName, Resident } from './types';
 import { useAuth } from './contexts/AuthContext';
+import { canManageOthers } from './utils/permissions';
 import { TRANSLATIONS, isLanguage } from './constants/translations';
 import { THEMES } from './constants/themes';
 import { calculateTotalDebt, getResidentLedgerWithPlanning, getBaseClasses, createTranslator } from './utils/helpers';
@@ -25,7 +26,7 @@ import { InfoView } from './components/views/InfoView';
 
 export default function App() {
   // Auth
-  const { userRole, signOut } = useAuth();
+  const { userRole, userProfile, signOut } = useAuth();
   
   // UI State - Initialize from cookies
   const [activeTab, setActiveTab] = useState<string>('financials');
@@ -86,7 +87,6 @@ export default function App() {
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={setActiveTab}
-          userRole={userRole || 'resident'}
           isSidebarOpen={isSidebarOpen} 
           setIsSidebarOpen={setIsSidebarOpen} 
           baseClasses={baseClasses} 
@@ -175,7 +175,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'settings' && userRole === 'admin' && (
+            {activeTab === 'settings' && canManageOthers(userProfile) && (
               <SettingsView 
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
