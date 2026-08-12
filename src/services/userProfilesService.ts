@@ -203,6 +203,22 @@ export const userProfilesService = {
     return data || [];
   },
 
+  // Başka bir kullanıcının şifresini sıfırlar. service_role gerektirdiği için
+  // client'tan yapılamaz; Edge Function üzerinden gidiyor. Yetki kontrolü
+  // fonksiyonun içinde, JWT'den çözülen kimliğe göre yapılıyor.
+  async resetPassword(userId: string, newPassword: string): Promise<{ error: string | null }> {
+    const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+      body: { userId, newPassword }
+    });
+
+    if (error) {
+      console.error('Error resetting password:', error);
+      return { error: 'reset_failed' };
+    }
+
+    return { error: data?.error ?? null };
+  },
+
   async deleteProfile(userId: string): Promise<boolean> {
     const { error } = await supabase
       .from('user_profiles')

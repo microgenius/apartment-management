@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck } from 'lucide-react';
+import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck, KeyRound } from 'lucide-react';
 import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
@@ -103,6 +103,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('duty_update_failed') });
     } finally {
       setSavingDuty(null);
+    }
+  };
+
+  // Şifre sıfırlama (başkasının şifresi -> Edge Function)
+  const [resetUserId, setResetUserId] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUserId || resetPassword.length < 6) {
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('password_too_short') });
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const { error } = await userProfilesService.resetPassword(resetUserId, resetPassword);
+      if (error) {
+        // Edge Function kurulu değilse en sık görülen hata bu; net söyleyelim
+        const message = error === 'reset_failed'
+          ? t('password_reset_failed_hint')
+          : t('password_reset_failed');
+        setErrorModal({ isOpen: true, title: t('error_occurred'), message });
+      } else {
+        const who = allUsers.find(u => u.id === resetUserId)?.full_name ?? '';
+        setSuccessModal({ isOpen: true, title: t('success'), message: `${who} ${t('password_reset_done')}` });
+        setResetUserId('');
+        setResetPassword('');
+      }
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('password_reset_failed') });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -516,6 +550,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Şifre Sıfırlama - kullanıcı kendi şifresini kenar çubuğundan değiştirir,
+          burası yalnızca BAŞKASININ şifresi için (unutulduğunda) */}
+      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
+          <KeyRound className="mr-2" size={20} />
+          {t('reset_user_password')}
+        </h3>
+        <p className={`text-sm mb-4 ${baseClasses.textSub}`}>{t('reset_user_password_desc')}</p>
+
+        <form onSubmit={handleResetPassword} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select
+            value={resetUserId}
+            onChange={(e) => setResetUserId(e.target.value)}
+            className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            required
+          >
+            <option value="">{t('select_user')}</option>
+            {allUsers.map((u) => {
+              const flat = residents.find((r) => r.id === u.resident_id);
+              return (
+                <option key={u.id} value={u.id}>
+                  {u.full_name}{flat ? ` (${flat.door})` : ''}
+                </option>
+              );
+            })}
+          </select>
+          <input
+            type="text"
+            value={resetPassword}
+            onChange={(e) => setResetPassword(e.target.value)}
+            placeholder={t('new_password')}
+            minLength={6}
+            required
+            className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+          />
+          <button
+            type="submit"
+            disabled={isResetting}
+            className={`w-full ${currentTheme.primary} text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 disabled:opacity-50`}
+          >
+            {isResetting ? t('saving') : t('reset_password_btn')}
+          </button>
+        </form>
+        <p className={`text-xs mt-2 ${baseClasses.textSub}`}>{t('reset_password_note')}</p>
       </div>
 
       {/* Transfer Admin Rights */}

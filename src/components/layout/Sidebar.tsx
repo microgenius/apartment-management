@@ -6,6 +6,7 @@ import {
   MessageSquare,
   User,
   LogOut,
+  KeyRound,
   X,
   Building,
   Settings,
@@ -23,7 +24,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   baseClasses, 
   currentTheme, 
   t,
-  onLogoutClick
+  onLogoutClick,
+  onPasswordClick
 }) => {
   const { userProfile, user } = useAuth();
 
@@ -67,7 +69,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         </div>
-        <button 
+        <button
+          onClick={onPasswordClick}
+          className={`flex items-center w-full p-2 mt-2 rounded text-sm font-medium transition-colors ${baseClasses.textSub} ${baseClasses.hover}`}
+        >
+          <KeyRound size={18} className="mr-3" /> {t('change_password')}
+        </button>
+        <button
           onClick={onLogoutClick}
           className="flex items-center w-full p-2 mt-2 text-red-500 hover:bg-red-500/10 rounded text-sm font-medium transition-colors"
         >

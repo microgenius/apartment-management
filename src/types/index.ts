@@ -113,6 +113,7 @@ export interface SidebarProps extends Omit<CommonProps, 'darkMode'> {
   setIsSidebarOpen: (isOpen: boolean) => void;
   darkMode: boolean;
   onLogoutClick: () => void;
+  onPasswordClick: () => void;
 }
 
 export interface HeaderProps {

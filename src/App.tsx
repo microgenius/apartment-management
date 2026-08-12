@@ -12,6 +12,7 @@ import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
 import { LogoutModal } from './components/modals/LogoutModal';
+import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { cookies } from './utils/cookies';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -64,6 +65,7 @@ export default function App() {
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   // AI States
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -92,6 +94,7 @@ export default function App() {
           t={t}
           darkMode={darkMode}
           onLogoutClick={() => setShowLogoutModal(true)}
+          onPasswordClick={() => setShowPasswordModal(true)}
         />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -211,6 +214,13 @@ export default function App() {
         }}
         t={t}
         darkMode={darkMode}
+      />
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        baseClasses={baseClasses}
+        currentTheme={currentTheme}
+        t={t}
       />
       <CookieBanner />
     </ProtectedRoute>
