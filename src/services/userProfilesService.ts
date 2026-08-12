@@ -12,6 +12,9 @@ export interface UserProfile {
    * null: henüz bir daireye bağlanmamış.
    */
   resident_id: number | null;
+  /** Kullanıcının gerçek telefon numarası (E.164). Giriş için üretilen
+   *  teknik e-posta okunabilir olmadığından numara burada tutuluyor. */
+  phone: string | null;
   /** Site görevi. Yetkiyi bu taşır; role='admin' ayrı bir teknik roldür. */
   duty: 'manager' | 'assistant' | null;
   /** Göreve başlama tarihi - aidat muafiyeti bu aydan itibaren işler. */
@@ -55,7 +58,7 @@ export const userProfilesService = {
     return data || [];
   },
 
-  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, residentId?: number | null): Promise<UserProfile | null> {
+  async createProfile(userId: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, residentId?: number | null, phone?: string | null): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('user_profiles')
       .insert({
@@ -64,6 +67,7 @@ export const userProfilesService = {
         role,
         apartment_info: apartmentInfo || null,
         resident_id: residentId ?? null,
+        phone: phone ?? null,
       })
       .select()
       .single();

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 import { userProfilesService, type UserProfile } from '../services/userProfilesService';
-import { isEmail, toE164 } from '../utils/helpers';
+import { isEmail, toE164, phoneToLoginEmail } from '../utils/helpers';
 
 interface AuthContextType {
   user: User | null;
@@ -109,13 +109,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Email ve telefon Supabase'de ayrı alanlar; girdiye göre doğru olanı gönderiyoruz
   const signIn = async (identifier: string, password: string, dialCode?: string) => {
     try {
+      // Telefonla giriş de e-posta akışından gidiyor: Supabase telefon
+      // sağlayıcısı SMS olmadan açılamıyor. Numara, kayıtta üretilenle
+      // aynı teknik adrese çözülüyor.
       let credentials;
       if (isEmail(identifier)) {
         credentials = { email: identifier.trim(), password };
       } else {
-        const phone = toE164(identifier, dialCode);
-        if (!phone) return { error: new Error('INVALID_PHONE') };
-        credentials = { phone, password };
+        const loginEmail = phoneToLoginEmail(identifier, dialCode);
+        if (!loginEmail) return { error: new Error('INVALID_PHONE') };
+        credentials = { email: loginEmail, password };
       }
 
       const { error } = await supabase.auth.signInWithPassword(credentials);
@@ -137,8 +140,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: new Error('INVALID_PHONE'), userId: null };
       }
 
+      // E-posta verilmemişse numaradan teknik bir adres üretiliyor.
+      // Supabase'e telefon alanı GÖNDERİLMİYOR: telefon sağlayıcısı kapalı
+      // olduğu için "Phone signups are disabled" hatası veriyor.
+      const loginEmail = email || phoneToLoginEmail(phone!, dialCode)!;
+
       const { data, error } = await supabase.auth.signUp({
-        ...(email ? { email } : { phone: normalizedPhone! }),
+        email: loginEmail,
         password,
         options: {
           data: {
@@ -155,7 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Profile'ı manuel oluştur (trigger çalışmayabilir)
       if (data.user) {
-        await userProfilesService.createProfile(data.user.id, fullName, role, apartmentInfo);
+        // Gerçek numara profilde okunabilir halde tutuluyor; teknik e-posta
+        // yalnızca Supabase'in kimlik alanını doldurmak için var.
+        await userProfilesService.createProfile(
+          data.user.id, fullName, role, apartmentInfo, null, normalizedPhone
+        );
       }
 
       return { error: null, userId: data.user?.id ?? null };
