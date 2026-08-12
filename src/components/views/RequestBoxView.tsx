@@ -5,6 +5,7 @@ import { callGemini } from '../../config/api';
 import { requestsService } from '../../services/requestsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canDeleteContent } from '../../utils/permissions';
+import { todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
@@ -54,7 +55,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
       const newReq = await requestsService.create({
         user: userProfile?.full_name || 'Kullanıcı',
         user_id: userProfile?.id ?? null,
-        date: new Date().toISOString().split('T')[0],
+        date: todayISO(),
         content: newRequestText,
         status: 'status_new',
         inAgenda: false

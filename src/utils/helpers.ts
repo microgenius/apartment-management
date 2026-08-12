@@ -60,7 +60,7 @@ export const getResidentLedgerWithPlanning = (
 
   while(loopDate <= meeting) {
     // Use first day of month as the due date
-    const dateStr = loopDate.toISOString().split('T')[0];
+    const dateStr = toLocalISODate(loopDate);
     const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
 
     // Check if there's already a record for this month
@@ -139,6 +139,23 @@ export const getBaseClasses = (darkMode: boolean): BaseClasses => ({
   header: darkMode ? 'bg-slate-800 shadow-slate-900/20' : 'bg-white shadow-sm',
   hover: darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
 });
+
+/**
+ * Tarihi YYYY-MM-DD olarak, KULLANICININ YEREL gününe göre verir.
+ *
+ * toISOString() kullanmayın: o UTC'ye çevirir. Türkiye UTC+3 olduğu için
+ * gece 00:00-03:00 arasında bir önceki günü döndürür ve kayıtlara yanlış
+ * tarih yazılır. Almanya/İrlanda için de yaz saatinde aynı risk var.
+ */
+export const toLocalISODate = (d: Date): string => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+/** Bugünün yerel tarihi (YYYY-MM-DD). */
+export const todayISO = (): string => toLocalISODate(new Date());
 
 /**
  * Dil seçimine karşılık gelen ülke telefon kodu.

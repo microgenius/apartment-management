@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { todayISO } from '../utils/helpers';
 
 export type TransactionType = 'income' | 'expense';
 export type TransactionSource = 'manual' | 'dues';
@@ -46,7 +47,7 @@ export const transactionsService = {
         type: input.type,
         amount: input.amount,
         description: input.description,
-        date: input.date ?? new Date().toISOString().split('T')[0],
+        date: input.date ?? todayISO(),
         source: input.source ?? 'manual',
         resident_id: input.resident_id ?? null,
         created_by: auth?.user?.id ?? null

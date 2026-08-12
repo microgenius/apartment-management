@@ -2,7 +2,7 @@
 // Üç pazar da kapsanıyor: Türkiye, Almanya, İrlanda.
 // Çalıştırmak için:  node --experimental-strip-types src/utils/helpers.test.ts
 import assert from 'node:assert/strict';
-import { toE164, isEmail, DIAL_CODES } from './helpers.ts';
+import { toE164, isEmail, DIAL_CODES, toLocalISODate, todayISO } from './helpers.ts';
 
 // --- Türkiye (+90) ---
 const TR = '+905072318420';
@@ -61,4 +61,17 @@ assert.equal(toE164('+9051234567890123456', DIAL_CODES.tr), null); // E.164 15 h
 assert.equal(isEmail('user@example.com'), true);
 assert.equal(isEmail('05072318420'), false);
 
-console.log('✓ toE164 / isEmail kontrolleri geçti (TR, DE, IE)');
+// --- Yerel tarih: toISOString UTC'ye çevirdiği için gece saatlerinde
+// bir önceki günü veriyordu; kayıtlara yanlış tarih yazılıyordu ---
+// UTC+3'te 12 Ağustos 01:00 -> UTC'de hâlâ 11 Ağustos
+const geceYarisi = new Date(2026, 7, 12, 1, 0, 0);
+assert.equal(toLocalISODate(geceYarisi), '2026-08-12', 'yerel gün korunmalı');
+
+// Ay/gün tek haneliyken sıfır doldurma
+assert.equal(toLocalISODate(new Date(2026, 0, 5)), '2026-01-05');
+assert.equal(toLocalISODate(new Date(2026, 11, 31, 23, 59)), '2026-12-31', 'yıl sonu kaymamalı');
+
+// todayISO her zaman YYYY-MM-DD biçiminde olmalı
+assert.match(todayISO(), /^\d{4}-\d{2}-\d{2}$/);
+
+console.log('✓ toE164 / isEmail / yerel tarih kontrolleri geçti (TR, DE, IE)');
