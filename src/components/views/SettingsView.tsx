@@ -125,11 +125,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const { error } = await userProfilesService.resetPassword(resetUserId, resetPassword);
       if (error) {
-        // Edge Function kurulu değilse en sık görülen hata bu; net söyleyelim
-        const message = error === 'reset_failed'
-          ? t('password_reset_failed_hint')
-          : t('password_reset_failed');
-        setErrorModal({ isOpen: true, title: t('error_occurred'), message });
+        // Sunucudan gelen sebebi olduğu gibi gösteriyoruz; hepsini "kurulu
+        // değil" diye göstermek yanlış yere baktırıyordu.
+        const messages: Record<string, string> = {
+          not_deployed: t('password_reset_not_deployed'),
+          service_role_not_configured: t('password_reset_no_secret'),
+          forbidden: t('password_reset_forbidden'),
+          unauthorized: t('password_reset_unauthorized'),
+          password_too_short: t('password_too_short')
+        };
+        setErrorModal({
+          isOpen: true,
+          title: t('error_occurred'),
+          message: messages[error] ?? `${t('password_reset_failed')} (${error})`
+        });
       } else {
         const who = allUsers.find(u => u.id === resetUserId)?.full_name ?? '';
         setSuccessModal({ isOpen: true, title: t('success'), message: `${who} ${t('password_reset_done')}` });

@@ -212,7 +212,22 @@ export const userProfilesService = {
     });
 
     if (error) {
-      console.error('Error resetting password:', error);
+      // functions.invoke 2xx dışındaki her yanıtı hata sayıyor. Gerçek sebebi
+      // ayırmazsak "kurulu değil" mesajı, kurulu ama 403 dönen fonksiyonu da
+      // gizler ve yanlış yere baktırır.
+      const status: number | undefined = (error as { context?: { status?: number } }).context?.status;
+
+      let serverError: string | undefined;
+      try {
+        serverError = (await (error as { context?: Response }).context?.json())?.error;
+      } catch {
+        // gövde JSON değil (ör. 404 HTML sayfası) - status'e bakacağız
+      }
+
+      console.error('Error resetting password:', { status, serverError, error });
+
+      if (status === 404) return { error: 'not_deployed' };
+      if (serverError) return { error: serverError };
       return { error: 'reset_failed' };
     }
 
