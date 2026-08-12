@@ -28,6 +28,23 @@ export const canManageOthers = (profile: UserProfile | null): boolean =>
   hasDuty(profile) || isAdmin(profile);
 
 /**
+ * Kendi oluşturduğu içeriği (duyuru, talep) silebilir mi?
+ * Yazarıysa evet; başkasınınkini yalnızca görevli/admin silebilir.
+ *
+ * authorId null ise kaydın yazarı bilinmiyor demektir (yazar kolonu
+ * eklenmeden önce oluşturulmuş). Bu durumda kimse "sahibiyim" diyemez,
+ * yalnızca görevli silebilir - yanlış kişiye silme yetkisi vermektense
+ * yöneticiye bırakmak doğru olan.
+ */
+export const canDeleteContent = (
+  profile: UserProfile | null,
+  authorId: string | null | undefined
+): boolean => {
+  if (canManageOthers(profile)) return true;
+  return authorId != null && profile?.id != null && profile.id === authorId;
+};
+
+/**
  * Belirli bir dairenin bilgilerini (iletişim kişileri vb.) değiştirebilir mi?
  * Kendi dairesiyse evet; başkasının dairesiyse yalnızca görevli/admin.
  */

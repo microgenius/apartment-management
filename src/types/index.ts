@@ -43,6 +43,9 @@ export interface Resident {
 export interface RequestItem {
   id: number;
   user: string;
+  /** Yazarın hesabı. Silme yetkisi buradan belirlenir; isim gösterim için.
+   *  null: migration öncesi kayıt, yazarı bilinmiyor. */
+  user_id: string | null;
   date: string;
   content: string;
   status: RequestStatus;
@@ -52,6 +55,8 @@ export interface RequestItem {
 export interface CommunityPost {
   id: number;
   user: string;
+  /** Yazarın hesabı. Silme yetkisi buradan belirlenir; isim gösterim için. */
+  user_id: string | null;
   date: string;
   content: string;
   type: PostType;

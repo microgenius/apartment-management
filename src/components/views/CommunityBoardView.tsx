@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Users, Send, Pin, User } from 'lucide-react';
+import { Users, Send, Pin, User , Trash2 } from 'lucide-react';
 import type { CommunityBoardViewProps, CommunityPost } from '../../types';
 import { communityPostsService } from '../../services/communityPostsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { canDeleteContent } from '../../utils/permissions';
+import { ConfirmModal } from '../modals/ConfirmModal';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -16,17 +18,29 @@ export const CommunityBoardView: React.FC<CommunityBoardViewProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const [newPostContent, setNewPostContent] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<CommunityPost | null>(null);
   const [newPostType, setNewPostType] = useState<CommunityPost['type']>('general');
 
   // Modals
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '' });
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });
 
+  const handleDeletePost = async (post: CommunityPost) => {
+    try {
+      await communityPostsService.delete(post.id);
+      setCommunityPosts(communityPosts.filter((p) => p.id !== post.id));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('delete_failed') });
+    }
+  };
+
   const handleAddCommunityPost = async () => {
     if (!newPostContent.trim()) return;
     try {
       const newPost = await communityPostsService.create({
-        user: `${userProfile?.full_name || 'Kullanıcı'} (Siz)`,
+        user: userProfile?.full_name || 'Kullanıcı',
+        user_id: userProfile?.id ?? null,
         date: 'Şimdi',
         content: newPostContent,
         type: newPostType
@@ -97,13 +111,25 @@ export const CommunityBoardView: React.FC<CommunityBoardViewProps> = ({
                     <span className={`text-xs ${baseClasses.textSub}`}>{post.date}</span>
                   </div>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  post.type === 'agenda' ? 'bg-orange-100 text-orange-700' : 
-                  post.type === 'event' ? 'bg-purple-100 text-purple-700' : 
-                  post.type === 'alert' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}
-                >
-                  {t(post.type)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    post.type === 'agenda' ? 'bg-orange-100 text-orange-700' :
+                    post.type === 'event' ? 'bg-purple-100 text-purple-700' :
+                    post.type === 'alert' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}
+                  >
+                    {t(post.type)}
+                  </span>
+                  {canDeleteContent(userProfile, post.user_id) && (
+                    <button
+                      onClick={() => setConfirmDelete(post)}
+                      aria-label={t('delete')}
+                      title={t('delete')}
+                      className="text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               <p className={`text-sm ml-11 ${baseClasses.textMain} leading-relaxed whitespace-pre-wrap`}>
                 {post.content}
@@ -121,6 +147,20 @@ export const CommunityBoardView: React.FC<CommunityBoardViewProps> = ({
         message={successModal.message}
         darkMode={darkMode}
       />
+      <ConfirmModal
+        isOpen={confirmDelete !== null}
+        title={t('delete_confirm_title')}
+        message={t('delete_confirm_post')}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => {
+          if (confirmDelete) handleDeletePost(confirmDelete);
+          setConfirmDelete(null);
+        }}
+        onClose={() => setConfirmDelete(null)}
+        baseClasses={baseClasses}
+      />
+
       <ErrorModal
         isOpen={errorModal.isOpen}
         onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}

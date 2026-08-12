@@ -229,3 +229,34 @@ CREATE POLICY "user_profiles_update" ON user_profiles FOR UPDATE TO authenticate
 -- içinde herkese gösterilen bilgiler - okumayı authenticated'a açıyoruz.
 DROP POLICY IF EXISTS "user_profiles_select" ON user_profiles;
 CREATE POLICY "user_profiles_select" ON user_profiles FOR SELECT TO authenticated USING (true);
+
+-- ==========================================
+-- DUYURU / TALEP SİLME - kendi kaydını silebilme
+-- ==========================================
+-- Yukarıdaki requests_delete ve community_posts_delete politikaları
+-- yalnızca admin'e izin veriyordu. Kural gereği kişi kendi oluşturduğu
+-- kaydı da silebilmeli; başkasınınkini yalnızca görevli/admin silebilir.
+-- Bu politikalar add_author_to_posts_and_requests.sql'i gerektirir
+-- (user_id kolonu). Onu çalıştırmadan burayı çalıştırmayın.
+--
+-- user_id IS NULL olan eski kayıtlar: sahibi bilinmediği için yalnızca
+-- görevli/admin silebilir - yanlış kişiye silme yetkisi vermektense
+-- yöneticiye bırakmak doğru olan.
+
+DROP POLICY IF EXISTS "requests_delete" ON requests;
+CREATE POLICY "requests_delete" ON requests FOR DELETE TO authenticated
+  USING (is_admin() OR has_duty() OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "community_posts_delete" ON community_posts;
+CREATE POLICY "community_posts_delete" ON community_posts FOR DELETE TO authenticated
+  USING (is_admin() OR has_duty() OR user_id = auth.uid());
+
+-- Yazar alanı sahteciliğe kapalı olmalı: kişi başkasının adına kayıt
+-- oluşturup sonra onun kaydıymış gibi gösteremesin.
+DROP POLICY IF EXISTS "requests_insert" ON requests;
+CREATE POLICY "requests_insert" ON requests FOR INSERT TO authenticated
+  WITH CHECK (user_id IS NULL OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "community_posts_insert" ON community_posts;
+CREATE POLICY "community_posts_insert" ON community_posts FOR INSERT TO authenticated
+  WITH CHECK (user_id IS NULL OR user_id = auth.uid());

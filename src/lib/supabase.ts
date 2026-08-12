@@ -82,6 +82,7 @@ export type Database = {
         Row: {
           id: number;
           user_name: string;
+          user_id: string | null;
           date: string;
           content: string;
           status: 'status_new' | 'status_review' | 'status_completed';
@@ -92,6 +93,7 @@ export type Database = {
         Insert: {
           id?: number;
           user_name: string;
+          user_id?: string | null;
           date?: string;
           content: string;
           status: 'status_new' | 'status_review' | 'status_completed';
@@ -102,6 +104,7 @@ export type Database = {
         Update: {
           id?: number;
           user_name?: string;
+          user_id?: string | null;
           date?: string;
           content?: string;
           status?: 'status_new' | 'status_review' | 'status_completed';
@@ -114,6 +117,7 @@ export type Database = {
         Row: {
           id: number;
           user_info: string;
+          user_id: string | null;
           date: string;
           content: string;
           type: 'general' | 'event' | 'alert' | 'agenda';
@@ -123,6 +127,7 @@ export type Database = {
         Insert: {
           id?: number;
           user_info: string;
+          user_id?: string | null;
           date: string;
           content: string;
           type: 'general' | 'event' | 'alert' | 'agenda';
@@ -132,6 +137,7 @@ export type Database = {
         Update: {
           id?: number;
           user_info?: string;
+          user_id?: string | null;
           date?: string;
           content?: string;
           type?: 'general' | 'event' | 'alert' | 'agenda';
