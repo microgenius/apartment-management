@@ -6,6 +6,7 @@ import {
   MessageSquare,
   User,
   LogOut,
+  KeyRound,
   X,
   Building,
   Settings,
@@ -13,17 +14,18 @@ import {
 } from 'lucide-react';
 import type { SidebarProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageOthers } from '../../utils/permissions';
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
-  setActiveTab, 
-  userRole, 
-  isSidebarOpen, 
+  setActiveTab,
+  isSidebarOpen,
   setIsSidebarOpen, 
   baseClasses, 
   currentTheme, 
   t,
-  onLogoutClick
+  onLogoutClick,
+  onPasswordClick
 }) => {
   const { userProfile, user } = useAuth();
 
@@ -40,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
       
       <nav className="p-4 mt-4">
-        {['dashboard', 'financials', 'community', 'requests', 'info', ...(userRole === 'admin' ? ['settings'] : [])].map(tab => (
+        {['dashboard', 'financials', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['settings'] : [])].map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
@@ -67,7 +69,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         </div>
-        <button 
+        <button
+          onClick={onPasswordClick}
+          className={`flex items-center w-full p-2 mt-2 rounded text-sm font-medium transition-colors ${baseClasses.textSub} ${baseClasses.hover}`}
+        >
+          <KeyRound size={18} className="mr-3" /> {t('change_password')}
+        </button>
+        <button
           onClick={onLogoutClick}
           className="flex items-center w-full p-2 mt-2 text-red-500 hover:bg-red-500/10 rounded text-sm font-medium transition-colors"
         >

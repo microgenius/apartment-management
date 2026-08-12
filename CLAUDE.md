@@ -65,3 +65,20 @@ VITE_GEMINI_API_KEY=        # optional, only needed for AI agenda generation
 ```
 
 Copy `.env.example` to `.env`. Full Supabase project setup (schema, first admin user, auth provider config) is in `SUPABASE_SETUP.md`.
+
+## Edge Functions
+
+`supabase/functions/admin-reset-password` is the project's only server-side
+component. It exists because resetting *another* user's password requires the
+Supabase admin API, which needs the `service_role` key — a key that must never
+reach the browser. The function re-derives the caller's identity from the JWT
+and re-checks authority (`role = 'admin'` or `duty` set) server-side; it never
+trusts anything in the request body.
+
+Deploy with `supabase functions deploy admin-reset-password` and set the secret
+`SERVICE_ROLE_KEY`. Without it, the Settings reset form fails with a message
+saying the function isn't deployed — the rest of the app is unaffected.
+
+Users change their *own* password from the sidebar (`ChangePasswordModal`),
+which needs no backend: `supabase.auth.updateUser({ password })` only ever acts
+on the current session.

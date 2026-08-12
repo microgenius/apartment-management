@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Language, ThemeName, Resident } from './types';
 import { useAuth } from './contexts/AuthContext';
+import { canManageOthers } from './utils/permissions';
 import { TRANSLATIONS, isLanguage } from './constants/translations';
 import { THEMES } from './constants/themes';
 import { calculateTotalDebt, getResidentLedgerWithPlanning, getBaseClasses, createTranslator } from './utils/helpers';
@@ -12,6 +13,7 @@ import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
 import { LogoutModal } from './components/modals/LogoutModal';
+import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { cookies } from './utils/cookies';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -24,7 +26,7 @@ import { InfoView } from './components/views/InfoView';
 
 export default function App() {
   // Auth
-  const { userRole, signOut } = useAuth();
+  const { userRole, userProfile, signOut } = useAuth();
   
   // UI State - Initialize from cookies
   const [activeTab, setActiveTab] = useState<string>('financials');
@@ -64,6 +66,7 @@ export default function App() {
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   // AI States
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -84,7 +87,6 @@ export default function App() {
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={setActiveTab}
-          userRole={userRole || 'resident'}
           isSidebarOpen={isSidebarOpen} 
           setIsSidebarOpen={setIsSidebarOpen} 
           baseClasses={baseClasses} 
@@ -92,6 +94,7 @@ export default function App() {
           t={t}
           darkMode={darkMode}
           onLogoutClick={() => setShowLogoutModal(true)}
+          onPasswordClick={() => setShowPasswordModal(true)}
         />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -172,7 +175,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'settings' && userRole === 'admin' && (
+            {activeTab === 'settings' && canManageOthers(userProfile) && (
               <SettingsView 
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
@@ -211,6 +214,13 @@ export default function App() {
         }}
         t={t}
         darkMode={darkMode}
+      />
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        baseClasses={baseClasses}
+        currentTheme={currentTheme}
+        t={t}
       />
       <CookieBanner />
     </ProtectedRoute>

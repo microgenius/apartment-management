@@ -161,6 +161,21 @@ export const LOCALES: Record<Language, string> = {
 };
 
 /**
+ * Eski kapı numarasının sıralama değeri. Numara metin olarak tutuluyor
+ * ("32", "35-36") ama sıralama sayısal olmalı - aksi halde "10" < "9" çıkar.
+ * Birleşik dairelerde ilk numara esas alınır ("35-36" -> 35).
+ * Eski numarası olmayan daireler sona düşer.
+ */
+export const oldDoorSortValue = (oldDoor: string | null | undefined): number => {
+  const n = parseInt(String(oldDoor ?? ''), 10);
+  return Number.isNaN(n) ? Number.MAX_SAFE_INTEGER : n;
+};
+
+/** Daireleri eski kapı numarasına göre sayısal sıralar. */
+export const sortByOldDoor = <T extends { old_door: string | null }>(items: T[]): T[] =>
+  [...items].sort((a, b) => oldDoorSortValue(a.old_door) - oldDoorSortValue(b.old_door));
+
+/**
  * Girdinin email mi telefon mu olduğunu ayırt eder.
  * Supabase signInWithPassword email ve telefonu ayrı alanlarda bekliyor.
  */

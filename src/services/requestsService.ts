@@ -14,6 +14,7 @@ export const requestsService = {
     return (data || []).map(r => ({
       id: r.id,
       user: r.user_name,
+      user_id: r.user_id,
       date: r.date,
       content: r.content,
       status: r.status as RequestItem['status'],
@@ -34,6 +35,7 @@ export const requestsService = {
     return (data || []).map(r => ({
       id: r.id,
       user: r.user_name,
+      user_id: r.user_id,
       date: r.date,
       content: r.content,
       status: r.status as RequestItem['status'],
@@ -47,6 +49,7 @@ export const requestsService = {
       .from('requests')
       .insert({
         user_name: request.user,
+        user_id: request.user_id,
         date: request.date,
         content: request.content,
         status: request.status,
@@ -60,6 +63,7 @@ export const requestsService = {
     return {
       id: data.id,
       user: data.user_name,
+      user_id: data.user_id,
       date: data.date,
       content: data.content,
       status: data.status as RequestItem['status'],

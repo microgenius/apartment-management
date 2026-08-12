@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { MessageSquare, Sparkles, Loader2, PlusCircle, Gavel } from 'lucide-react';
+import { MessageSquare, Sparkles, Loader2, PlusCircle, Gavel , Trash2 } from 'lucide-react';
 import type { RequestBoxViewProps, RequestItem } from '../../types';
 import { callGemini } from '../../config/api';
 import { requestsService } from '../../services/requestsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { canDeleteContent } from '../../utils/permissions';
+import { ConfirmModal } from '../modals/ConfirmModal';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -23,19 +25,35 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const [newRequestText, setNewRequestText] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<RequestItem | null>(null);
   
   // Modals
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '' });
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });
 
-  const filteredRequests = userRole === 'admin' ? requests : requests.filter((req) => req.user === userProfile?.full_name);
+  const handleDeleteRequest = async (req: RequestItem) => {
+    try {
+      await requestsService.delete(req.id);
+      setRequests(requests.filter((r) => r.id !== req.id));
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('delete_failed') });
+    }
+  };
+
+  const filteredRequests = userRole === 'admin'
+    ? requests
+    : requests.filter((req) =>
+        req.user_id ? req.user_id === userProfile?.id : req.user === userProfile?.full_name
+      );
 
   const handleAddRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRequestText.trim()) return;
     try {
       const newReq = await requestsService.create({
-        user: userProfile?.full_name || 'Kullanıcı', 
+        user: userProfile?.full_name || 'Kullanıcı',
+        user_id: userProfile?.id ?? null,
         date: new Date().toISOString().split('T')[0],
         content: newRequestText,
         status: 'status_new',
@@ -169,11 +187,33 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
                     <option value="status_review">{t('status_review')}</option>
                     <option value="status_completed">{t('status_completed')}</option>
                   </select>
+                  {canDeleteContent(userProfile, req.user_id) && (
+                    <button
+                      onClick={() => setConfirmDelete(req)}
+                      aria-label={t('delete')}
+                      title={t('delete')}
+                      className="text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               ) : (
-                <span className={`px-2 py-1 rounded text-xs font-semibold ${req.status === 'status_completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                  {t(req.status)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${req.status === 'status_completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {t(req.status)}
+                  </span>
+                  {canDeleteContent(userProfile, req.user_id) && (
+                    <button
+                      onClick={() => setConfirmDelete(req)}
+                      aria-label={t('delete')}
+                      title={t('delete')}
+                      className="text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <p className={`mb-4 ${baseClasses.textSub}`}>{req.content}</p>
@@ -207,6 +247,20 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
         message={successModal.message}
         darkMode={darkMode}
       />
+      <ConfirmModal
+        isOpen={confirmDelete !== null}
+        title={t('delete_confirm_title')}
+        message={t('delete_confirm_request')}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => {
+          if (confirmDelete) handleDeleteRequest(confirmDelete);
+          setConfirmDelete(null);
+        }}
+        onClose={() => setConfirmDelete(null)}
+        baseClasses={baseClasses}
+      />
+
       <ErrorModal
         isOpen={errorModal.isOpen}
         onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}

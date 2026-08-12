@@ -26,6 +26,9 @@ export type ResidentDuty = 'manager' | 'assistant';
 export interface Resident {
   id: number;
   door: string;
+  /** Numaralandırma değişmeden önceki daire no. Eski listelerle/defterlerle
+   *  eşleştirmek için tutuluyor; boş olabilir. */
+  old_door: string | null;
   name: string;
   type: 'Kiracı' | 'Ev Sahibi';
   phone: string;
@@ -40,6 +43,9 @@ export interface Resident {
 export interface RequestItem {
   id: number;
   user: string;
+  /** Yazarın hesabı. Silme yetkisi buradan belirlenir; isim gösterim için.
+   *  null: migration öncesi kayıt, yazarı bilinmiyor. */
+  user_id: string | null;
   date: string;
   content: string;
   status: RequestStatus;
@@ -49,6 +55,8 @@ export interface RequestItem {
 export interface CommunityPost {
   id: number;
   user: string;
+  /** Yazarın hesabı. Silme yetkisi buradan belirlenir; isim gösterim için. */
+  user_id: string | null;
   date: string;
   content: string;
   type: PostType;
@@ -105,11 +113,11 @@ export interface CommonProps {
 export interface SidebarProps extends Omit<CommonProps, 'darkMode'> {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  userRole: UserRole;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
   darkMode: boolean;
   onLogoutClick: () => void;
+  onPasswordClick: () => void;
 }
 
 export interface HeaderProps {

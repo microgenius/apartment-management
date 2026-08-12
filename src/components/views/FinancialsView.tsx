@@ -209,7 +209,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           </button>
 
           <h2 className={`text-2xl font-bold ${baseClasses.textMain} mb-6 flex items-center`}>
-            <Wallet className={`mr-2 ${currentTheme.text}`} /> {selectedResidentForDetail.name} - No: {selectedResidentForDetail.door}
+            <Wallet className={`mr-2 ${currentTheme.text}`} /> {selectedResidentForDetail.name} - No: {selectedResidentForDetail.door}{selectedResidentForDetail.old_door ? ` (${t('old_door_short')}: ${selectedResidentForDetail.old_door})` : ''}
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -317,7 +317,14 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                     const debt = calculateTotalDebt(residentLedger);
                     return (
                       <tr key={resident.id} className={`border-b ${baseClasses.border} ${baseClasses.hover}`}>
-                        <td className={`p-4 font-medium ${baseClasses.textMain}`}>No:{resident.door}</td>
+                        <td className={`p-4 font-medium ${baseClasses.textMain}`}>
+                          No:{resident.door}
+                          {resident.old_door && (
+                            <span className={`block text-[11px] font-normal ${baseClasses.textSub}`}>
+                              {t('old_door_short')}: {resident.old_door}
+                            </span>
+                          )}
+                        </td>
                         <td className={`p-4 ${baseClasses.textSub}`}>{resident.name}</td>
                         <td className={`p-4 text-right font-bold ${debt > 0 ? 'text-red-500' : 'opacity-40'}`}>
                           {debt} ₺
@@ -572,7 +579,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
             <div className={`${baseClasses.bgCard} rounded-xl p-6 w-full max-w-md`}>
               <h3 className={`text-xl font-bold mb-4 ${baseClasses.textMain}`}>{t('collection_process')}</h3>
               <div className={`mb-4 p-3 border rounded ${baseClasses.border}`}>
-                <p className={`text-sm ${baseClasses.textSub}`}>{selectedDebtor.name} (No: {selectedDebtor.door})</p>
+                <p className={`text-sm ${baseClasses.textSub}`}>{selectedDebtor.name} (No: {selectedDebtor.door}{selectedDebtor.old_door ? `, ${t('old_door_short')}: ${selectedDebtor.old_door}` : ''})</p>
                 <p className="text-xl font-bold text-red-500 mt-1">{t('total')}: {calculateTotalDebt(getResidentLedgerWithPlanning(selectedDebtor))} ₺</p>
               </div>
               <input 

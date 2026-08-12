@@ -2,7 +2,7 @@
 // ilgilendiriyorsa yönetici/yardımcısı".
 // Çalıştırmak için:  node --experimental-strip-types src/utils/permissions.test.ts
 import assert from 'node:assert/strict';
-import { canEditResident, canManageOthers, hasDuty, isAdmin } from './permissions.ts';
+import { canEditResident, canManageOthers, canDeleteContent, hasDuty, isAdmin } from './permissions.ts';
 import type { UserProfile } from '../services/userProfilesService.ts';
 
 const profile = (over: Partial<UserProfile>): UserProfile => ({
@@ -60,3 +60,17 @@ assert.equal(canManageOthers(yonetici), true);
 assert.equal(canManageOthers(sakin), false);
 
 console.log('✓ yetki kuralı kontrolleri geçti');
+
+// --- İçerik silme: yazarı silebilir, başkası silemez ---
+assert.equal(canDeleteContent(sakin, 'u1'), true, 'yazar kendi içeriğini silebilmeli');
+assert.equal(canDeleteContent(sakin, 'baskasi'), false, 'başkasının içeriğini silememeli');
+assert.equal(canDeleteContent(yonetici, 'baskasi'), true, 'yönetici her içeriği silebilmeli');
+assert.equal(canDeleteContent(yardimci, 'baskasi'), true, 'yardımcı da silebilmeli');
+
+// Yazarı bilinmeyen eski kayıtlar: kimse "sahibiyim" diyememeli
+assert.equal(canDeleteContent(sakin, null), false, 'yazarı bilinmeyeni sakin silememeli');
+assert.equal(canDeleteContent(daireSiz, null), false, 'null == null tuzağı');
+assert.equal(canDeleteContent(yonetici, null), true, 'ama yönetici silebilmeli');
+assert.equal(canDeleteContent(null, 'u1'), false, 'oturum yoksa silemez');
+
+console.log('✓ içerik silme yetkisi kontrolleri geçti');

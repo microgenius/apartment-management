@@ -14,6 +14,7 @@ export const communityPostsService = {
     return (data || []).map(p => ({
       id: p.id,
       user: p.user_info,
+      user_id: p.user_id,
       date: p.date,
       content: p.content,
       type: p.type as CommunityPost['type']
@@ -33,6 +34,7 @@ export const communityPostsService = {
     return (data || []).map(p => ({
       id: p.id,
       user: p.user_info,
+      user_id: p.user_id,
       date: p.date,
       content: p.content,
       type: p.type as CommunityPost['type']
@@ -45,6 +47,7 @@ export const communityPostsService = {
       .from('community_posts')
       .insert({
         user_info: post.user,
+        user_id: post.user_id,
         date: post.date,
         content: post.content,
         type: post.type
@@ -57,6 +60,7 @@ export const communityPostsService = {
     return {
       id: data.id,
       user: data.user_info,
+      user_id: data.user_id,
       date: data.date,
       content: data.content,
       type: data.type as CommunityPost['type']

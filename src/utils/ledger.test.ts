@@ -3,7 +3,7 @@
 // geçmiş borçları silmemeli.
 // Çalıştırmak için:  node --experimental-strip-types src/utils/ledger.test.ts
 import assert from 'node:assert/strict';
-import { getResidentLedgerWithPlanning, calculateTotalDebt } from './helpers.ts';
+import { getResidentLedgerWithPlanning, calculateTotalDebt, sortByOldDoor, oldDoorSortValue } from './helpers.ts';
 import type { Resident, ResidentDuty } from '../types/index.ts';
 
 const makeResident = (duty: ResidentDuty | null, dutySince: string | null): Resident => ({
@@ -56,3 +56,22 @@ assert.equal(kept.length, 1, 'veritabanındaki gerçek kayıt silinmemeli');
 assert.equal(calculateTotalDebt(kept), 100);
 
 console.log('✓ aidat üretimi ve görev muafiyeti kontrolleri geçti');
+
+// --- Eski kapı numarasına göre sıralama ---
+// Metin sıralaması "10" < "9" verirdi; sayısal olmalı.
+const daireler = [
+  { old_door: '9' }, { old_door: '35-36' }, { old_door: '2' },
+  { old_door: null }, { old_door: '10' }, { old_door: '1' }
+];
+assert.deepEqual(
+  sortByOldDoor(daireler).map((d) => d.old_door),
+  ['1', '2', '9', '10', '35-36', null],
+  'sayısal sıralanmalı, numarasızlar sona düşmeli'
+);
+
+assert.equal(oldDoorSortValue('35-36'), 35, 'birleşik dairede ilk numara esas');
+assert.equal(oldDoorSortValue(null), Number.MAX_SAFE_INTEGER);
+assert.equal(oldDoorSortValue(''), Number.MAX_SAFE_INTEGER);
+assert.equal(oldDoorSortValue('abc'), Number.MAX_SAFE_INTEGER, 'sayı olmayan sona');
+
+console.log('✓ eski kapı numarası sıralaması geçti');
