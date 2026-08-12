@@ -16,7 +16,11 @@ interface AuthContextType {
    * Kullanıcı kitlesi TR/DE/IE olduğu için sabit +90 varsaymak yanlış numara üretir.
    */
   signIn: (identifier: string, password: string, dialCode?: string) => Promise<{ error: Error | null }>;
-  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => Promise<{ error: Error | null; userId: string | null }>;
+  createUser: (
+    email: string, password: string, fullName: string, role: 'resident' | 'admin',
+    apartmentInfo?: string, phone?: string, dialCode?: string,
+    extra?: { residentId: number; contactType: 'owner' | 'tenant' | 'emergency' | 'other'; contactPhone: string; isPrimary: boolean }
+  ) => Promise<{ error: Error | null; userId: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -128,7 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createUser = async (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => {
+  const createUser = async (
+    email: string, password: string, fullName: string, role: 'resident' | 'admin',
+    apartmentInfo?: string, phone?: string, dialCode?: string,
+    extra?: { residentId: number; contactType: 'owner' | 'tenant' | 'emergency' | 'other'; contactPhone: string; isPrimary: boolean }
+  ) => {
     try {
       // Admin tarafından yeni kullanıcı oluşturma.
       // Supabase signUp tek bir kimlik alıyor: email verilmişse email, yoksa telefon.
@@ -141,36 +149,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // E-posta verilmemişse numaradan teknik bir adres üretiliyor.
-      // Supabase'e telefon alanı GÖNDERİLMİYOR: telefon sağlayıcısı kapalı
-      // olduğu için "Phone signups are disabled" hatası veriyor.
       const loginEmail = email || phoneToLoginEmail(phone!, dialCode)!;
 
-      const { data, error } = await supabase.auth.signUp({
-        email: loginEmail,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            // Supabase panelindeki "Display name" sütunu display_name anahtarına
-            // bakıyor; yalnızca full_name yazınca orada boş/yanlış görünüyordu.
-            display_name: fullName,
-          },
-          emailRedirectTo: undefined, // Email confirmation linkini devre dışı bırak
-        },
+      // Kullanıcı SUNUCU TARAFINDA oluşturuluyor. Client'tan signUp()
+      // çağrılırsa tarayıcının oturumu yeni kullanıcıya geçiyor; sonraki
+      // profil/iletişim yazmaları o kimlikle çalışıp RLS'e takılıyor ve
+      // sessizce yarım kayıt bırakıyordu. Ayrıca yönetici kendi oturumunu
+      // kaybediyordu.
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          loginEmail,
+          email: email || null,
+          phone: normalizedPhone,
+          password,
+          fullName,
+          role,
+          apartmentInfo: apartmentInfo ?? null,
+          residentId: extra?.residentId,
+          contactType: extra?.contactType ?? 'owner',
+          contactPhone: extra?.contactPhone ?? normalizedPhone ?? '',
+          isPrimary: extra?.isPrimary ?? false
+        }
       });
 
-      if (error) return { error, userId: null };
+      if (error) {
+        const status: number | undefined = (error as { context?: { status?: number } }).context?.status;
+        let serverError: string | undefined;
+        let detail: string | undefined;
+        try {
+          const b = await (error as { context?: Response }).context?.json();
+          serverError = b?.error;
+          detail = b?.detail;
+        } catch { /* gövde okunamadı */ }
 
-      // Profile'ı manuel oluştur (trigger çalışmayabilir)
-      if (data.user) {
-        // Gerçek numara profilde okunabilir halde tutuluyor; teknik e-posta
-        // yalnızca Supabase'in kimlik alanını doldurmak için var.
-        await userProfilesService.createProfile(
-          data.user.id, fullName, role, apartmentInfo, null, normalizedPhone
-        );
+        console.error('createUser failed:', { status, serverError, detail });
+        if (status === 404) return { error: new Error('NOT_DEPLOYED'), userId: null };
+        return { error: new Error(detail || serverError || 'CREATE_FAILED'), userId: null };
       }
 
-      return { error: null, userId: data.user?.id ?? null };
+      if (data?.contactWarning) {
+        console.warn('İletişim kişisi eklenemedi:', data.contactWarning);
+      }
+
+      return { error: null, userId: data?.userId ?? null };
     } catch (error) {
       return { error: error as Error, userId: null };
     }
