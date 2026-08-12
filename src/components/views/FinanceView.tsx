@@ -5,6 +5,7 @@ import { transactionsService, type Transaction, type TransactionType } from '../
 import { sumTransactions, filterByDateRange } from '../../utils/transactions';
 import { LOCALES, todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
+import { FinanceReport, type ReportTemplate } from '../FinanceReport';
 import { ErrorModal } from '../modals/ErrorModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageOthers } from '../../utils/permissions';
@@ -31,6 +32,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [reportOpen, setReportOpen] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [template, setTemplate] = useState<ReportTemplate>('summary');
 
   // Sakinler aidat tahsilatlarını kalem kalem göremiyor (kimin ne ödediği
   // kişisel bilgi); RLS o satırları zaten getirmiyor. Toplamı tek bir
@@ -59,7 +61,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     () => filterByDateRange(visibleTransactions, from, to),
     [visibleTransactions, from, to]
   );
-  const reportTotals = useMemo(() => sumTransactions(reportItems), [reportItems]);
 
   const incomes = visibleTransactions.filter((x) => x.type === 'income');
   const expenses = visibleTransactions.filter((x) => x.type === 'expense');
@@ -239,84 +240,65 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
       {/* Rapor */}
       {reportOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 print:static print:bg-transparent print:p-0">
-          <div className={`${baseClasses.bgCard} rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto relative print:max-w-none print:max-h-none print:shadow-none`}>
-            <button
-              onClick={() => setReportOpen(false)}
-              className={`absolute top-4 right-4 print:hidden ${baseClasses.textSub} hover:text-red-500`}
-            >
-              <X size={22} />
-            </button>
+        <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className={`${baseClasses.bgCard} rounded-2xl w-full max-w-4xl my-4 relative`}>
+            {/* Kağıda basılmayacak kısım: başlık, filtreler, düğmeler */}
+            <div className={`no-print p-4 border-b ${baseClasses.border}`}>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className={`text-lg font-bold ${baseClasses.textMain}`}>{t('finance_report')}</h3>
+                <button
+                  onClick={() => setReportOpen(false)}
+                  className={`${baseClasses.textSub} hover:text-red-500`}
+                  aria-label={t('close')}
+                >
+                  <X size={22} />
+                </button>
+              </div>
 
-            <h3 className={`text-xl font-bold mb-1 ${baseClasses.textMain}`}>{t('finance_report')}</h3>
-            <p className={`text-sm mb-4 ${baseClasses.textSub}`}>
-              {from || to
-                ? `${from || '…'} → ${to || '…'}`
-                : t('all_time')}
-            </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {(['summary', 'ledger'] as ReportTemplate[]).map((tpl) => (
+                  <button
+                    key={tpl}
+                    onClick={() => setTemplate(tpl)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+                      template === tpl
+                        ? `${currentTheme.primary} text-white border-transparent`
+                        : `${baseClasses.border} ${baseClasses.textMain}`
+                    }`}
+                  >
+                    {t(tpl === 'summary' ? 'report_summary' : 'report_ledger')}
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap gap-3 mb-4 print:hidden">
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                className={`p-2 rounded-lg border outline-none ${baseClasses.input}`} />
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                className={`p-2 rounded-lg border outline-none ${baseClasses.input}`} />
-              <button onClick={() => { setFrom(''); setTo(''); }}
-                className={`px-3 rounded-lg border ${baseClasses.border} ${baseClasses.textMain}`}>
-                {t('clear')}
-              </button>
-              <button onClick={() => window.print()}
-                className={`${currentTheme.primary} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2`}>
-                <Printer size={16} /> {t('print')}
-              </button>
+              <div className="flex flex-wrap gap-2 items-center">
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                  className={`p-2 rounded-lg border outline-none ${baseClasses.input}`} />
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                  className={`p-2 rounded-lg border outline-none ${baseClasses.input}`} />
+                <button onClick={() => { setFrom(''); setTo(''); }}
+                  className={`px-3 py-2 rounded-lg border ${baseClasses.border} ${baseClasses.textMain}`}>
+                  {t('clear')}
+                </button>
+                <button onClick={() => window.print()}
+                  className={`${currentTheme.primary} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2`}>
+                  <Printer size={16} /> {t('print')}
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className={`p-3 rounded-lg border ${baseClasses.border}`}>
-                <p className={`text-xs ${baseClasses.textSub}`}>{t('total_income')}</p>
-                <p className="font-bold text-green-600">{money(reportTotals.income)}</p>
-              </div>
-              <div className={`p-3 rounded-lg border ${baseClasses.border}`}>
-                <p className={`text-xs ${baseClasses.textSub}`}>{t('total_expense')}</p>
-                <p className="font-bold text-red-500">{money(reportTotals.expense)}</p>
-              </div>
-              <div className={`p-3 rounded-lg border ${baseClasses.border}`}>
-                <p className={`text-xs ${baseClasses.textSub}`}>{t('balance')}</p>
-                <p className={`font-bold ${reportTotals.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {money(reportTotals.balance)}
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className={`border-b ${baseClasses.border} ${baseClasses.textSub}`}>
-                    <th className="text-left p-2">{t('date')}</th>
-                    <th className="text-left p-2">{t('desc')}</th>
-                    <th className="text-left p-2">{t('type')}</th>
-                    <th className="text-right p-2">{t('amount')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportItems.map((item) => (
-                    <tr key={item.id} className={`border-b ${baseClasses.border}`}>
-                      <td className={`p-2 ${baseClasses.textSub}`}>
-                        {new Date(item.date).toLocaleDateString(LOCALES[lang])}
-                      </td>
-                      <td className={`p-2 ${baseClasses.textMain}`}>{item.description}</td>
-                      <td className={`p-2 ${item.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                        {t(item.type)}
-                      </td>
-                      <td className={`p-2 text-right font-medium ${item.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                        {money(Number(item.amount))}
-                      </td>
-                    </tr>
-                  ))}
-                  {reportItems.length === 0 && (
-                    <tr><td colSpan={4} className={`p-4 text-center ${baseClasses.textSub}`}>{t('no_records')}</td></tr>
-                  )}
-                </tbody>
-              </table>
+            {/* Yazdırılan alan. Beyaz zemin: koyu temada da kağıt gibi görünsün
+                ve önizleme çıktının aynısı olsun. */}
+            <div className="print-area bg-white p-6 overflow-x-auto">
+              <FinanceReport
+                items={reportItems}
+                from={from}
+                to={to}
+                template={template}
+                buildingName={t('apartment_name')}
+                t={t}
+                lang={lang}
+              />
             </div>
           </div>
         </div>
