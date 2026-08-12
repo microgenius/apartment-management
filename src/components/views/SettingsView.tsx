@@ -129,6 +129,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         // değil" diye göstermek yanlış yere baktırıyordu.
         const messages: Record<string, string> = {
           not_deployed: t('password_reset_not_deployed'),
+          network_or_cors: t('password_reset_network'),
           service_role_not_configured: t('password_reset_no_secret'),
           forbidden: t('password_reset_forbidden'),
           unauthorized: t('password_reset_unauthorized'),

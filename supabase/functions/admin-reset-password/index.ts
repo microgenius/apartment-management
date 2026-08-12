@@ -16,9 +16,13 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+// supabase-js isteğe authorization dışında apikey ve x-client-info başlıklarını
+// da ekliyor. Bunlar izin listesinde yoksa tarayıcı preflight'ı reddeder, istek
+// fonksiyona hiç ulaşmaz ve loglarda yalnızca booted/shutdown görünür - hata
+// satırı çalışmadığı için sebep hiçbir yere yazılmaz.
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 

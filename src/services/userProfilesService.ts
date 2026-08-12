@@ -233,6 +233,10 @@ export const userProfilesService = {
       // detail varsa onu gösteriyoruz: asıl sebep o, kod yalnızca kategorisi
       if (detail) return { error: detail };
       if (serverError) return { error: serverError };
+      // Yanıt gövdesi hiç okunamadıysa istek sunucuya ulaşmamış demektir
+      // (CORS preflight reddi, ağ hatası). Bunu sunucu hatasından ayırmazsak
+      // yanlış yere baktırır.
+      if (status === undefined) return { error: 'network_or_cors' };
       return { error: 'reset_failed' };
     }
 
