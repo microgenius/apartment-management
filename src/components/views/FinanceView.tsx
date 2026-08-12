@@ -149,7 +149,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder={t('amount')}
-            className={`p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            className={`min-w-0 p-3 rounded-lg border outline-none ${baseClasses.input}`}
             required
           />
           <input
@@ -157,19 +157,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('transaction_desc_placeholder')}
-            className={`md:col-span-2 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            className={`md:col-span-2 min-w-0 p-3 rounded-lg border outline-none ${baseClasses.input}`}
             required
           />
-          <div className="flex gap-2">
+          {/* min-w-0: flex/grid ögeleri varsayılan min-width:auto ile içerikten
+              küçülemez; tarih girdisinin tarayıcı kaynaklı asgari genişliği
+              bu yüzden kutuyu taşırıp butonu panelin dışına itiyordu */}
+          <div className="flex gap-2 min-w-0">
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              className={`flex-1 min-w-0 p-3 rounded-lg border outline-none ${baseClasses.input}`}
             />
             <button
               type="submit" disabled={saving}
-              className={`${currentTheme.primary} text-white px-4 rounded-lg font-medium disabled:opacity-50`}
+              className={`${currentTheme.primary} shrink-0 text-white px-4 py-3 rounded-lg font-medium disabled:opacity-50`}
             >
               {saving ? <Loader2 size={18} className="animate-spin" /> : t('add')}
             </button>
