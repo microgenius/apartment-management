@@ -3,6 +3,7 @@ import { Info, User, MapPin, Phone, Building } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { InfoViewProps, InfoItem } from '../../types';
 import { useInfo } from '../../hooks/useInfo';
+import { Loading } from '../Loading';
 
 // Role to display config mapping
 const roleConfig: Record<InfoItem['role'], {
@@ -56,7 +57,7 @@ export const InfoView: React.FC<InfoViewProps> = ({
         <h2 className={`text-2xl font-bold mb-6 flex items-center ${baseClasses.textMain}`}>
           <Info className={`mr-2 ${currentTheme.text}`} /> {t('info')}
         </h2>
-        <div className={`text-center py-8 ${baseClasses.textSub}`}>Yükleniyor...</div>
+        <Loading baseClasses={baseClasses} currentTheme={currentTheme} t={t} />
       </div>
     );
   }

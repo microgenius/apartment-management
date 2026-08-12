@@ -13,6 +13,8 @@ import { useTransactions } from './hooks/useTransactions';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
+import { InstallPrompt } from './components/InstallPrompt';
+import { Loading } from './components/Loading';
 import { LogoutModal } from './components/modals/LogoutModal';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { cookies } from './utils/cookies';
@@ -64,12 +66,25 @@ export default function App() {
   }, [darkMode]);
   
   // Data States from Supabase
-  const { residents, setResidents, refetch: refetchResidents } = useResidents();
-  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate } = useSettings();
-  const { requests, setRequests } = useRequests();
-  const { communityPosts, setCommunityPosts } = useCommunityPosts();
-  const { contacts, refetch: refetchContacts } = useResidentContacts();
-  const { transactions, duesTotal, refetch: refetchTransactions } = useTransactions();
+  const { residents, setResidents, refetch: refetchResidents, loading: residentsLoading } = useResidents();
+  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate, loading: settingsLoading } = useSettings();
+  const { requests, setRequests, loading: requestsLoading } = useRequests();
+  const { communityPosts, setCommunityPosts, loading: postsLoading } = useCommunityPosts();
+  const { contacts, refetch: refetchContacts, loading: contactsLoading } = useResidentContacts();
+  const { transactions, duesTotal, refetch: refetchTransactions, loading: transactionsLoading } = useTransactions();
+
+  // Aidat tutarı ve borç başlangıcı ayarlardan geliyor; ayarlar gelmeden
+  // borç hesabı yanlış çıkar (aylık aidat 0 varsayılır). Bu yüzden borç
+  // gösteren ekranlar ayarları da bekliyor.
+  const loadingByTab: Record<string, boolean> = {
+    dashboard: residentsLoading || settingsLoading || contactsLoading,
+    financials: residentsLoading || settingsLoading,
+    finance: transactionsLoading,
+    community: postsLoading,
+    requests: requestsLoading,
+    settings: residentsLoading
+  };
+  const isLoading = loadingByTab[activeTab] ?? false;
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -127,7 +142,11 @@ export default function App() {
 
         <div className={`flex-1 overflow-auto relative ${baseClasses.bgMain}`}>
           <div className="max-w-6xl mx-auto py-4 sm:py-6 px-1 sm:px-0">
-            {activeTab === 'dashboard' && (
+            {isLoading && (
+              <Loading baseClasses={baseClasses} currentTheme={currentTheme} t={t} />
+            )}
+
+            {!isLoading && activeTab === 'dashboard' && (
               <DashboardView
                 residents={residents} 
                 setSelectedApartment={setSelectedApartment} 
@@ -143,7 +162,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'financials' && (
+            {!isLoading && activeTab === 'financials' && (
               <FinancialsView
                 lang={lang}
                 residents={residents}
@@ -158,7 +177,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'requests' && (
+            {!isLoading && activeTab === 'requests' && (
               <RequestBoxView 
                 requests={requests} 
                 setRequests={setRequests}
@@ -174,7 +193,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'community' && (
+            {!isLoading && activeTab === 'community' && (
               <CommunityBoardView 
                 communityPosts={communityPosts} 
                 setCommunityPosts={setCommunityPosts}
@@ -185,7 +204,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'finance' && (
+            {!isLoading && activeTab === 'finance' && (
               <FinanceView
                 transactions={transactions}
                 duesTotal={duesTotal}
@@ -198,7 +217,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'settings' && canManageOthers(userProfile) && (
+            {!isLoading && activeTab === 'settings' && canManageOthers(userProfile) && (
               <SettingsView 
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
@@ -217,7 +236,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'info' && (
+            {!isLoading && activeTab === 'info' && (
               <InfoView 
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
@@ -246,6 +265,7 @@ export default function App() {
         currentTheme={currentTheme}
         t={t}
       />
+      <InstallPrompt t={t} />
       <CookieBanner />
     </ProtectedRoute>
   );

@@ -67,6 +67,25 @@ VITE_GEMINI_API_KEY=        # optional, only needed for AI agenda generation
 
 Copy `.env.example` to `.env`. Full Supabase project setup (schema, first admin user, auth provider config) is in `SUPABASE_SETUP.md`.
 
+## PWA
+
+The app installs to the home screen: `public/manifest.webmanifest` plus the
+iOS-specific meta tags in `index.html` (iOS does not read the manifest for the
+home-screen icon or standalone mode).
+
+`public/sw.js` deliberately **caches nothing**. Every screen is Supabase-driven,
+so an offline cache would only show an empty shell, while a caching service
+worker would risk pinning users to a stale build — a real hazard given how
+often this project deploys. The worker exists solely because browsers require
+a service worker with a `fetch` handler before offering "install". It also
+clears any cache left by earlier versions on activate. It is registered only in
+production (`main.tsx`), since a live worker in dev hides source changes.
+
+Icons were generated with PIL (blue `#2563eb` rounded square + white building,
+matching the in-app `Building2` logo). Regenerate all sizes together if the
+branding changes, including `pwa-maskable-512.png`, which keeps the glyph
+inside the inner 60% so Android's mask does not crop it.
+
 ## Edge Functions
 
 Two functions, both under `supabase/functions/`, both requiring the
