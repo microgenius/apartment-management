@@ -56,7 +56,17 @@ export const FinanceReport: React.FC<Props> = ({
 
   if (template === 'summary') {
     const expenseGroups = groupByDescription(expenses);
-    const incomeGroups = groupByDescription(incomes);
+
+    // Özet tabloda aidatlar TEK satır: kim ne ödedi dökümü bu raporun konusu
+    // değil, o bilgi işletme hesabı defterinde kalem kalem duruyor.
+    const duesSum = incomes
+      .filter((x) => x.source === 'dues')
+      .reduce((acc, x) => acc + Number(x.amount), 0);
+    const otherIncomes = incomes.filter((x) => x.source !== 'dues');
+    const incomeGroups = [
+      ...(duesSum > 0 ? [{ description: t('site_dues'), amount: duesSum }] : []),
+      ...groupByDescription(otherIncomes)
+    ];
 
     return (
       <div className="text-black text-[13px]">
@@ -146,8 +156,8 @@ export const FinanceReport: React.FC<Props> = ({
   }
 
   // İşletme Hesabı Defteri: gelir ve gider ayrı sayfalarda
-  const ledgerPage = (rows: Transaction[], heading: string, total: number, breakAfter: boolean) => (
-    <div className={breakAfter ? 'print-page-break' : ''}>
+  const ledgerPage = (rows: Transaction[], heading: string, total: number, position: 'first' | 'second') => (
+    <div className={position === 'first' ? 'print-page-break' : 'print-page-start'}>
       <h2 className="text-center font-bold text-base">{t('operating_ledger')}</h2>
       <h3 className="text-center font-bold mb-1">{heading}</h3>
       <p className="text-center text-[11px] mb-3">{buildingName} — {period}</p>
@@ -187,8 +197,8 @@ export const FinanceReport: React.FC<Props> = ({
 
   return (
     <div className="text-black text-[13px]">
-      {ledgerPage(incomes, t('income').toUpperCase(), totals.income, true)}
-      {ledgerPage(expenses, t('expense').toUpperCase(), totals.expense, false)}
+      {ledgerPage(incomes, t('income').toUpperCase(), totals.income, 'first')}
+      {ledgerPage(expenses, t('expense').toUpperCase(), totals.expense, 'second')}
     </div>
   );
 };

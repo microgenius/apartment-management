@@ -34,10 +34,23 @@
     display: none !important;
   }
 
-  /* İşletme hesabı defterinde gelir ve gider ayrı sayfalarda */
+  /* İşletme hesabı defterinde gelir ve gider ayrı sayfalarda.
+     Hem after hem before veriliyor: bazı tarayıcılar birini yok sayıyor. */
   .print-page-break {
     break-after: page;
     page-break-after: always;
+  }
+
+  .print-page-start {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* overflow:auto kendi biçimlendirme bağlamını kurar ve içindeki sayfa
+     sonları yok sayılabilir - yazdırırken kaydırmayı kapatıyoruz. */
+  .print-area,
+  .print-area * {
+    overflow: visible !important;
   }
 
   /* Tablo satırları sayfa ortasından bölünmesin */
