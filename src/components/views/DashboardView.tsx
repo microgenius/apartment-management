@@ -33,8 +33,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     </div>
 
-    <div className={`p-8 rounded-xl shadow-sm border max-w-4xl mx-auto ${baseClasses.bgCard}`}>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+    <div className={`p-4 sm:p-6 rounded-xl shadow-sm border ${baseClasses.bgCard}`}>
+      <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]">
         {residents.map((apt) => {
           const aptLedger = getResidentLedgerWithPlanning(apt);
           const totalDebt = calculateTotalDebt(aptLedger);
@@ -55,7 +55,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button 
               key={apt.id} 
               onClick={() => setSelectedApartment(apt)}
-              className={`p-4 rounded-xl border-2 transition-all hover:scale-105 flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden group ${borderColorClass} ${bgClass}`}
+              className={`p-3 rounded-xl border-2 transition-all hover:scale-105 flex flex-col items-center justify-center min-h-[118px] relative overflow-hidden group ${borderColorClass} ${bgClass}`}
             >
               {apt.status === 'Boş' && (
                 <div className="absolute top-0 right-0 bg-slate-500 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">
@@ -63,7 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
               
-              <span className={`font-bold text-2xl ${isAdmin ? (totalDebt > 0 ? 'text-red-500' : 'text-green-600') : baseClasses.textMain}`}>
+              <span className={`font-bold text-xl ${isAdmin ? (totalDebt > 0 ? 'text-red-500' : 'text-green-600') : baseClasses.textMain}`}>
                 No: {apt.door}
               </span>
 

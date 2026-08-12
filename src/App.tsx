@@ -9,6 +9,7 @@ import { useResidents } from './hooks/useResidents';
 import { useRequests } from './hooks/useRequests';
 import { useCommunityPosts } from './hooks/useCommunityPosts';
 import { useResidentContacts } from './hooks/useResidentContacts';
+import { useTransactions } from './hooks/useTransactions';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
@@ -23,6 +24,7 @@ import { RequestBoxView } from './components/views/RequestBoxView';
 import { CommunityBoardView } from './components/views/CommunityBoardView';
 import { SettingsView } from './components/views/SettingsView';
 import { InfoView } from './components/views/InfoView';
+import { FinanceView } from './components/views/FinanceView';
 
 export default function App() {
   // Auth
@@ -63,6 +65,7 @@ export default function App() {
   const { requests, setRequests } = useRequests();
   const { communityPosts, setCommunityPosts } = useCommunityPosts();
   const { contacts, refetch: refetchContacts } = useResidentContacts();
+  const { transactions, refetch: refetchTransactions } = useTransactions();
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -175,6 +178,18 @@ export default function App() {
               />
             )}
             
+            {activeTab === 'finance' && canManageOthers(userProfile) && (
+              <FinanceView
+                transactions={transactions}
+                refetchTransactions={refetchTransactions}
+                baseClasses={baseClasses}
+                currentTheme={currentTheme}
+                t={t}
+                darkMode={darkMode}
+                lang={lang}
+              />
+            )}
+
             {activeTab === 'settings' && canManageOthers(userProfile) && (
               <SettingsView 
                 baseClasses={baseClasses} 

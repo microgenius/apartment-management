@@ -101,6 +101,7 @@ export interface InfoItem {
 }
 
 import type { ResidentContact } from '../services/residentContactsService';
+import type { Transaction } from '../services/transactionsService';
 
 // Component Props Tipleri
 export interface CommonProps {
@@ -181,6 +182,12 @@ export interface SettingsViewProps extends CommonProps {
   residents: Resident[];
   refetchResidents: () => void;
   lang: Language; // telefon numarasını doğru ülke koduyla normalize etmek için
+}
+
+export interface FinanceViewProps extends CommonProps {
+  transactions: Transaction[];
+  refetchTransactions: () => void;
+  lang: Language;
 }
 
 export interface InfoViewProps extends CommonProps {}
