@@ -143,6 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             full_name: fullName,
+            // Supabase panelindeki "Display name" sütunu display_name anahtarına
+            // bakıyor; yalnızca full_name yazınca orada boş/yanlış görünüyordu.
+            display_name: fullName,
           },
           emailRedirectTo: undefined, // Email confirmation linkini devre dışı bırak
         },
