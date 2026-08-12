@@ -1,6 +1,9 @@
 import React from 'react';
 import { MapPin, Eye, EyeOff, X, User } from 'lucide-react';
 import type { DashboardViewProps } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { canEditResident } from '../../utils/permissions';
+import { ResidentContacts } from '../ResidentContacts';
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
   userRole, 
@@ -11,9 +14,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   getResidentLedgerWithPlanning, 
   baseClasses, 
   currentTheme, 
-  t, 
-  darkMode 
-}) => (
+  t,
+  darkMode,
+  contacts,
+  refetchContacts
+}) => {
+  const { userProfile } = useAuth();
+
+  return (
   <div className="p-4 animate-fade-in">
     <div className="flex justify-between items-center mb-6">
       <h2 className={`text-2xl font-bold ${baseClasses.textMain} flex items-center`}>
@@ -85,7 +93,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     {/* Apartment Details Modal */}
     {selectedApartment && (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className={`${baseClasses.bgCard} rounded-2xl p-6 w-full max-w-sm relative`}>
+        <div className={`${baseClasses.bgCard} rounded-2xl p-6 w-full max-w-md relative max-h-[90vh] overflow-y-auto`}>
           <button 
             onClick={() => setSelectedApartment(null)} 
             className={`absolute top-4 right-4 ${baseClasses.textSub} hover:text-red-500`}
@@ -127,8 +135,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               );
             })()}
           </div>
-          
-          <button 
+
+          <ResidentContacts
+            residentId={selectedApartment.id}
+            contacts={contacts.filter((c) => c.resident_id === selectedApartment.id)}
+            canEdit={canEditResident(userProfile, selectedApartment.id)}
+            onChanged={refetchContacts}
+            baseClasses={baseClasses}
+            currentTheme={currentTheme}
+            t={t}
+            darkMode={darkMode}
+          />
+
+          <button
             onClick={() => setSelectedApartment(null)} 
             className={`w-full mt-6 text-white py-3 rounded-lg font-medium hover:opacity-90 ${darkMode ? 'bg-slate-700' : 'bg-slate-800'}`}
           >
@@ -139,3 +158,4 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     )}
   </div>
 );
+};

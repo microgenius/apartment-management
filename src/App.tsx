@@ -7,6 +7,7 @@ import { calculateTotalDebt, getResidentLedgerWithPlanning, getBaseClasses, crea
 import { useResidents } from './hooks/useResidents';
 import { useRequests } from './hooks/useRequests';
 import { useCommunityPosts } from './hooks/useCommunityPosts';
+import { useResidentContacts } from './hooks/useResidentContacts';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
@@ -59,6 +60,7 @@ export default function App() {
   const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate } = useSettings();
   const { requests, setRequests } = useRequests();
   const { communityPosts, setCommunityPosts } = useCommunityPosts();
+  const { contacts, refetch: refetchContacts } = useResidentContacts();
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -115,6 +117,8 @@ export default function App() {
                 residents={residents} 
                 setSelectedApartment={setSelectedApartment} 
                 selectedApartment={selectedApartment}
+                contacts={contacts}
+                refetchContacts={refetchContacts}
                 calculateTotalDebt={calculateTotalDebt}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
                 baseClasses={baseClasses} 

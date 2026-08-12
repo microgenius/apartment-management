@@ -403,3 +403,68 @@ because no rows were ever generated for them.
 ```sql
 UPDATE residents SET duty = NULL, duty_since = NULL;
 ```
+
+---
+
+## 10. Duty Moves to the Person (`move_duty_to_user_profiles.sql`)
+
+### Purpose
+Moves `duty` / `duty_since` from `residents` to `user_profiles`.
+
+### Why (correction to script 9)
+Script 9 put the duty on the flat, which is right for the **dues exemption**
+(dues are charged to the flat) but wrong for **authority**: a flat can have
+several linked accounts, so the manager's spouse would have silently gained
+manager powers. Authority belongs to a person.
+
+New shape:
+- `user_profiles.duty` carries the authority (see `src/utils/permissions.ts`)
+- the dues exemption is applied to the flat the duty holder is linked to
+  (`resident_id`), so `helpers.ts` keeps working unchanged
+
+When the duty changes hands the previous holder loses both the authority and
+the exemption automatically - no role update needed.
+
+### How to Run
+Run after scripts 6 and 9. STEP 2 only migrates flats that have **exactly one**
+linked account; where a flat has several accounts the system cannot know which
+person holds the office, so those are listed in STEP 4 for you to set from
+Settings. STEP 5 (dropping the old columns) is commented out on purpose.
+
+### Rollback (if needed)
+Only while STEP 5 has not been run:
+```sql
+UPDATE user_profiles SET duty = NULL, duty_since = NULL;
+```
+
+---
+
+## 11. Per-Flat Contact People (`add_resident_contacts.sql`)
+
+### Purpose
+`residents` holds a single person per flat (`name` + `phone` + `type`), so when
+a tenant lives there the owner's details were lost. `resident_contacts` lets a
+flat carry any number of people: owner, tenant, emergency contact, proxy.
+
+`residents.name` / `residents.phone` are **not** removed - the flat list, the
+financials screen and the legacy name matching still use them. This table adds
+a contact layer on top.
+
+### What It Does
+- Creates `resident_contacts` (type, name, phone, email, is_primary, note)
+- A partial unique index allows **one primary contact per flat**, unlimited
+  secondary ones
+- Seeds one primary contact per flat from the current `residents.name/phone`
+  (flats with an empty phone are skipped)
+
+### Who Can Edit
+The rule is: **your own flat you can edit yourself; anyone else's flat only the
+manager or the assistant manager.** Enforced in the UI by
+`src/utils/permissions.ts` and in the database by the `resident_contacts`
+policies in `enable_rls.sql`. The UI check alone is not security - anyone with
+the anon key can call the service directly, so run `enable_rls.sql`.
+
+### Rollback (if needed)
+```sql
+DROP TABLE IF EXISTS resident_contacts;
+```

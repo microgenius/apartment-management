@@ -11,6 +11,10 @@ export interface UserProfile {
    * null: henüz bir daireye bağlanmamış.
    */
   resident_id: number | null;
+  /** Site görevi. Yetkiyi bu taşır; role='admin' ayrı bir teknik roldür. */
+  duty: 'manager' | 'assistant' | null;
+  /** Göreve başlama tarihi - aidat muafiyeti bu aydan itibaren işler. */
+  duty_since: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +139,48 @@ export const userProfilesService = {
 
     if (error) {
       console.error('Error unlinking resident:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  // Görevi ata. Aynı görevi taşıyan varsa önce bırakır - veritabanındaki
+  // kısmi unique index zaten ikincisini reddederdi.
+  // duty_since bugüne set ediliyor: aidat muafiyeti bu aydan itibaren işler,
+  // görevden önceki aylar borç üretmeye devam eder.
+  async setDuty(userId: string, duty: 'manager' | 'assistant'): Promise<boolean> {
+    const { error: clearError } = await supabase
+      .from('user_profiles')
+      .update({ duty: null, duty_since: null })
+      .eq('duty', duty);
+
+    if (clearError) {
+      console.error('Error clearing previous duty:', clearError);
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ duty, duty_since: new Date().toISOString().split('T')[0] })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error setting duty:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  async clearDuty(userId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ duty: null, duty_since: null })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error clearing duty:', error);
       return false;
     }
 

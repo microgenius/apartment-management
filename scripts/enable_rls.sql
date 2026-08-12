@@ -151,3 +151,81 @@ CREATE POLICY "user_profiles_update" ON user_profiles FOR UPDATE TO authenticate
 
 DROP POLICY IF EXISTS "user_profiles_delete" ON user_profiles;
 CREATE POLICY "user_profiles_delete" ON user_profiles FOR DELETE TO authenticated USING (is_admin());
+
+-- ==========================================
+-- RESIDENT_CONTACTS (Daire iletişim kişileri)
+-- ==========================================
+-- Uygulamadaki kural: kendini ilgilendiren aksiyonu kendin yaparsın,
+-- başkasını ilgilendireni yönetici veya yardımcısı yapar.
+-- Bu kural utils/permissions.ts'te arayüz için uygulanıyor; asıl koruma
+-- burada. Arayüz kontrolü tek başına güvenlik değildir - anon key'i olan
+-- biri servisi doğrudan çağırabilir.
+
+-- Görevli mi? (yönetici veya yardımcısı). SECURITY DEFINER: user_profiles
+-- kendi RLS'i altındayken de okuyabilsin diye.
+CREATE OR REPLACE FUNCTION has_duty()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_profiles
+    WHERE id = auth.uid() AND duty IN ('manager', 'assistant')
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Oturumdaki kullanıcının bağlı olduğu daire
+CREATE OR REPLACE FUNCTION my_resident_id()
+RETURNS BIGINT AS $$
+  SELECT resident_id FROM user_profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+ALTER TABLE resident_contacts ENABLE ROW LEVEL SECURITY;
+
+-- Okuma: site rehberi, tüm oturum açmış kullanıcılara açık (uygulama zaten
+-- daire haritasında herkesin iletişimini gösteriyor).
+DROP POLICY IF EXISTS "resident_contacts_select" ON resident_contacts;
+CREATE POLICY "resident_contacts_select" ON resident_contacts FOR SELECT TO authenticated USING (true);
+
+-- Yazma: kendi dairesi VEYA görevli VEYA admin
+DROP POLICY IF EXISTS "resident_contacts_insert" ON resident_contacts;
+CREATE POLICY "resident_contacts_insert" ON resident_contacts FOR INSERT TO authenticated
+  WITH CHECK (is_admin() OR has_duty() OR resident_id = my_resident_id());
+
+DROP POLICY IF EXISTS "resident_contacts_update" ON resident_contacts;
+CREATE POLICY "resident_contacts_update" ON resident_contacts FOR UPDATE TO authenticated
+  USING (is_admin() OR has_duty() OR resident_id = my_resident_id())
+  WITH CHECK (is_admin() OR has_duty() OR resident_id = my_resident_id());
+
+DROP POLICY IF EXISTS "resident_contacts_delete" ON resident_contacts;
+CREATE POLICY "resident_contacts_delete" ON resident_contacts FOR DELETE TO authenticated
+  USING (is_admin() OR has_duty() OR resident_id = my_resident_id());
+
+-- ==========================================
+-- USER_PROFILES - görev atama
+-- ==========================================
+-- duty/resident_id gibi alanları kullanıcının kendisi değiştirememeli;
+-- yoksa herkes kendini yönetici yapıp aidattan muaf olabilir.
+-- Not: mevcut user_profiles_update politikası (is_admin() OR id = auth.uid())
+-- buna izin veriyordu. Aşağıdaki politika onun yerine geçer: kullanıcı yalnızca
+-- kendi görünen adını değiştirebilir, görev ve daire bağlantısı admin/görevliye kalır.
+DROP POLICY IF EXISTS "user_profiles_update" ON user_profiles;
+CREATE POLICY "user_profiles_update" ON user_profiles FOR UPDATE TO authenticated
+  USING (is_admin() OR has_duty() OR id = auth.uid())
+  WITH CHECK (is_admin() OR has_duty() OR id = auth.uid());
+
+-- ⚠️ Postgres RLS kolon bazlı kısıtlama yapmaz: yukarıdaki politika kendi
+-- satırındaki duty'yi de değiştirmeye izin verir. Kolon seviyesinde kilit için:
+--   REVOKE UPDATE (duty, duty_since, resident_id, role) ON user_profiles FROM authenticated;
+--   GRANT UPDATE (full_name, apartment_info) ON user_profiles TO authenticated;
+-- Bunu çalıştırırsanız görev atama/rol devri işlemleri service_role gerektirir
+-- (Edge Function). Bu bir denge kararı: rahatlık mı, sıkı koruma mı.
+
+-- ==========================================
+-- USER_PROFILES okuma - düzeltme
+-- ==========================================
+-- Yukarıdaki user_profiles_select (is_admin() OR id = auth.uid()) bu sürümle
+-- birlikte yetersiz kaldı: residentsService.getAll() görev sahiplerini
+-- user_profiles'tan okuyup aidat muafiyetini o daireye uyguluyor. Sıradan bir
+-- sakin yalnızca kendi satırını görebilseydi görevlileri hiç göremez, muafiyet
+-- de arayüzde kaybolurdu. Tablo isim/rol/görev tutuyor, yani zaten uygulama
+-- içinde herkese gösterilen bilgiler - okumayı authenticated'a açıyoruz.
+DROP POLICY IF EXISTS "user_profiles_select" ON user_profiles;
+CREATE POLICY "user_profiles_select" ON user_profiles FOR SELECT TO authenticated USING (true);

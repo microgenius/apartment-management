@@ -18,6 +18,21 @@ export const residentsService = {
 
     if (ledgersError) throw ledgersError;
 
+    // Görev artık kişide (user_profiles) duruyor; aidat muafiyeti ise daireye
+    // uygulanıyor. Görevlinin bağlı olduğu daireyi muaf olarak işaretliyoruz,
+    // böylece helpers.ts'teki üretim mantığı değişmeden çalışmaya devam ediyor.
+    const { data: dutyHolders } = await supabase
+      .from('user_profiles')
+      .select('resident_id, duty, duty_since')
+      .not('duty', 'is', null);
+
+    const dutyByResident = new Map<number, { duty: ResidentDuty; since: string | null }>();
+    (dutyHolders || []).forEach(h => {
+      if (h.resident_id != null) {
+        dutyByResident.set(h.resident_id, { duty: h.duty as ResidentDuty, since: h.duty_since });
+      }
+    });
+
     return residents.map(resident => ({
       id: resident.id,
       door: resident.door,
@@ -25,8 +40,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
-      duty: resident.duty,
-      duty_since: resident.duty_since,
+      duty: dutyByResident.get(resident.id)?.duty ?? null,
+      duty_since: dutyByResident.get(resident.id)?.since ?? null,
       ledger: (ledgers || [])
         .filter(l => l.resident_id === resident.id)
         .map(l => ({
@@ -59,6 +74,13 @@ export const residentsService = {
 
     if (ledgersError) throw ledgersError;
 
+    const { data: dutyHolder } = await supabase
+      .from('user_profiles')
+      .select('duty, duty_since')
+      .eq('resident_id', id)
+      .not('duty', 'is', null)
+      .maybeSingle();
+
     return {
       id: resident.id,
       door: resident.door,
@@ -66,8 +88,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
-      duty: resident.duty,
-      duty_since: resident.duty_since,
+      duty: (dutyHolder?.duty as ResidentDuty) ?? null,
+      duty_since: dutyHolder?.duty_since ?? null,
       ledger: (ledgers || []).map(l => ({
         id: l.id,
         date: l.date,
@@ -107,37 +129,6 @@ export const residentsService = {
       .from('residents')
       .update(updates)
       .eq('id', id);
-
-    if (error) throw error;
-  },
-
-  // Görevi ata. Aynı görevi taşıyan başka daire varsa önce bırakır -
-  // veritabanındaki kısmi unique index zaten ikinciyi reddederdi.
-  // duty_since bugüne set ediliyor: muafiyet bu aydan itibaren işler,
-  // görevden önceki aylar borç üretmeye devam eder.
-  async setDuty(residentId: number, duty: ResidentDuty): Promise<void> {
-    const { error: clearError } = await supabase
-      .from('residents')
-      .update({ duty: null, duty_since: null })
-      .eq('duty', duty);
-
-    if (clearError) throw clearError;
-
-    const { error } = await supabase
-      .from('residents')
-      .update({ duty, duty_since: new Date().toISOString().split('T')[0] })
-      .eq('id', residentId);
-
-    if (error) throw error;
-  },
-
-  // Görevi kaldırır - daire tekrar aidata tabi olur (geçmiş muaf aylar
-  // geri gelmez, çünkü o aylar için hiç kayıt üretilmemişti)
-  async clearDuty(residentId: number): Promise<void> {
-    const { error } = await supabase
-      .from('residents')
-      .update({ duty: null, duty_since: null })
-      .eq('id', residentId);
 
     if (error) throw error;
   },

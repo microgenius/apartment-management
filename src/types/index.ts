@@ -92,6 +92,8 @@ export interface InfoItem {
   updated_at: string;
 }
 
+import type { ResidentContact } from '../services/residentContactsService';
+
 // Component Props Tipleri
 export interface CommonProps {
   baseClasses: BaseClasses;
@@ -137,6 +139,8 @@ export interface FinancialsViewProps extends CommonProps {
 export interface DashboardViewProps extends CommonProps {
   userRole: string;
   residents: Resident[];
+  contacts: ResidentContact[];
+  refetchContacts: () => void;
   setSelectedApartment: (resident: Resident | null) => void;
   selectedApartment: Resident | null;
   calculateTotalDebt: (ledgerItems: LedgerItem[]) => number;

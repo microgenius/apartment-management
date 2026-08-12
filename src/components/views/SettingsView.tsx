@@ -3,7 +3,6 @@ import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, 
 import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
-import { residentsService } from '../../services/residentsService';
 import { DIAL_CODES, LOCALES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
 import { SuccessModal } from '../modals/SuccessModal';
@@ -83,16 +82,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Görev atama (yönetici / yardımcısı). Görevi olan daireden aidat alınmaz.
   const [savingDuty, setSavingDuty] = useState<ResidentDuty | null>(null);
 
-  const handleDutyChange = async (duty: ResidentDuty, residentId: string) => {
+  // Görev KİŞİYE atanıyor: yetki kişiye ait olmalı, daireye değil - bir daireye
+  // birden fazla hesap bağlanabildiği için görevlinin eşi de yetki kazanırdı.
+  // Aidat muafiyeti ise görevlinin bağlı olduğu daireye uygulanıyor.
+  const handleDutyChange = async (duty: ResidentDuty, userId: string) => {
     setSavingDuty(duty);
     try {
-      const current = residents.find(r => r.duty === duty);
-      if (current && String(current.id) !== residentId) {
-        await residentsService.clearDuty(current.id);
+      const current = allUsers.find(u => u.duty === duty);
+      if (current && current.id !== userId) {
+        await userProfilesService.clearDuty(current.id);
       }
-      if (residentId) {
-        await residentsService.setDuty(Number(residentId), duty);
+      if (userId) {
+        await userProfilesService.setDuty(userId, duty);
       }
+      await loadUsers();
       refetchResidents();
       setSuccessModal({ isOpen: true, title: t('success'), message: t('duty_updated') });
     } catch (error) {
@@ -479,26 +482,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {(['manager', 'assistant'] as ResidentDuty[]).map((duty) => {
-            const holder = residents.find((r) => r.duty === duty);
+            const holder = allUsers.find((u) => u.duty === duty);
+            const holderFlat = residents.find((r) => r.id === holder?.resident_id);
             return (
               <div key={duty}>
                 <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
                   {t(duty === 'manager' ? 'manager_title' : 'assistant_title')}
                 </label>
                 <select
-                  value={holder ? String(holder.id) : ''}
+                  value={holder?.id ?? ''}
                   disabled={savingDuty !== null}
                   onChange={(e) => handleDutyChange(duty, e.target.value)}
                   className={`w-full p-3 rounded-lg border outline-none disabled:opacity-50 ${baseClasses.input}`}
                 >
                   <option value="">{t('duty_none')}</option>
-                  {residents.map((r) => (
-                    <option key={r.id} value={r.id}>{r.door} - {r.name}</option>
-                  ))}
+                  {allUsers.map((u) => {
+                    const flat = residents.find((r) => r.id === u.resident_id);
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name}{flat ? ` (${flat.door})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
-                {holder?.duty_since && (
+                {holder && (
                   <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
-                    {t('duty_exempt_since')}: {new Date(holder.duty_since).toLocaleDateString(LOCALES[lang])}
+                    {holderFlat
+                      ? `${t('duty_exempt_since')}: ${holder.duty_since ? new Date(holder.duty_since).toLocaleDateString(LOCALES[lang]) : '-'} (${holderFlat.door})`
+                      : t('duty_no_flat_warning')}
                   </p>
                 )}
               </div>
