@@ -218,15 +218,20 @@ export const userProfilesService = {
       const status: number | undefined = (error as { context?: { status?: number } }).context?.status;
 
       let serverError: string | undefined;
+      let detail: string | undefined;
       try {
-        serverError = (await (error as { context?: Response }).context?.json())?.error;
+        const body = await (error as { context?: Response }).context?.json();
+        serverError = body?.error;
+        detail = body?.detail;
       } catch {
         // gövde JSON değil (ör. 404 HTML sayfası) - status'e bakacağız
       }
 
-      console.error('Error resetting password:', { status, serverError, error });
+      console.error('Error resetting password:', { status, serverError, detail, error });
 
       if (status === 404) return { error: 'not_deployed' };
+      // detail varsa onu gösteriyoruz: asıl sebep o, kod yalnızca kategorisi
+      if (detail) return { error: detail };
       if (serverError) return { error: serverError };
       return { error: 'reset_failed' };
     }
