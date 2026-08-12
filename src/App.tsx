@@ -13,6 +13,7 @@ import { useTransactions } from './hooks/useTransactions';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
+import { InstallPrompt } from './components/InstallPrompt';
 import { LogoutModal } from './components/modals/LogoutModal';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { cookies } from './utils/cookies';
@@ -246,6 +247,7 @@ export default function App() {
         currentTheme={currentTheme}
         t={t}
       />
+      <InstallPrompt t={t} />
       <CookieBanner />
     </ProtectedRoute>
   );
