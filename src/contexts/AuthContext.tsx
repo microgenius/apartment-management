@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 import { userProfilesService, type UserProfile } from '../services/userProfilesService';
+import { isEmail, toE164 } from '../utils/helpers';
 
 interface AuthContextType {
   user: User | null;
@@ -9,8 +10,13 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   userRole: 'resident' | 'admin' | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string) => Promise<{ error: Error | null; userId: string | null }>;
+  /**
+   * identifier: email veya telefon numarası (hangisi olduğu otomatik ayırt edilir).
+   * dialCode: ülke kodu yazılmamış telefonlar için varsayılan (bkz. DIAL_CODES).
+   * Kullanıcı kitlesi TR/DE/IE olduğu için sabit +90 varsaymak yanlış numara üretir.
+   */
+  signIn: (identifier: string, password: string, dialCode?: string) => Promise<{ error: Error | null }>;
+  createUser: (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => Promise<{ error: Error | null; userId: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -100,23 +106,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  // Email ve telefon Supabase'de ayrı alanlar; girdiye göre doğru olanı gönderiyoruz
+  const signIn = async (identifier: string, password: string, dialCode?: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      let credentials;
+      if (isEmail(identifier)) {
+        credentials = { email: identifier.trim(), password };
+      } else {
+        const phone = toE164(identifier, dialCode);
+        if (!phone) return { error: new Error('INVALID_PHONE') };
+        credentials = { phone, password };
+      }
+
+      const { error } = await supabase.auth.signInWithPassword(credentials);
       return { error };
     } catch (error) {
       return { error: error as Error };
     }
   };
 
-  const createUser = async (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string) => {
+  const createUser = async (email: string, password: string, fullName: string, role: 'resident' | 'admin', apartmentInfo?: string, phone?: string, dialCode?: string) => {
     try {
-      // Admin tarafından yeni kullanıcı oluşturma
+      // Admin tarafından yeni kullanıcı oluşturma.
+      // Supabase signUp tek bir kimlik alıyor: email verilmişse email, yoksa telefon.
+      const normalizedPhone = phone ? toE164(phone, dialCode) : null;
+      if (!email && !normalizedPhone) {
+        return { error: new Error('NO_IDENTIFIER'), userId: null };
+      }
+      if (phone && !normalizedPhone) {
+        return { error: new Error('INVALID_PHONE'), userId: null };
+      }
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        ...(email ? { email } : { phone: normalizedPhone! }),
         password,
         options: {
           data: {

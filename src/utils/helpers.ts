@@ -32,13 +32,13 @@ export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
  * @returns Tüm ledger kayıtları (mevcut + planlı)
  */
 export const getResidentLedgerWithPlanning = (
-  resident: Resident, 
-  meetingDate: string, 
+  resident: Resident,
+  meetingDate: string,
   lang: Language,
   monthlyDue: number = 1500,
   debtStartDate: string = '2024-01-01'
 ): LedgerItem[] => {
-  let fullLedger = [...resident.ledger];
+  const fullLedger = [...resident.ledger];
   const startDate = new Date(debtStartDate);
   const startMonth = startDate.getMonth();
   const startYear = startDate.getFullYear();
@@ -46,24 +46,36 @@ export const getResidentLedgerWithPlanning = (
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
-  
+
+  // Yönetici / yardımcısı aidattan muaf - ama yalnızca göreve başladığı aydan
+  // itibaren. Görevden önceki aylar normal şekilde borç üretmeye devam eder,
+  // aksi halde birini yönetici seçmek geçmiş borcunu da silerdi.
+  const exemptFrom = resident.duty && resident.duty_since
+    ? new Date(resident.duty_since)
+    : null;
+
   // Start planning from the first day of the debt start date month
   // Add 12 hours to prevent timezone issues with date comparison
-  let loopDate = new Date(startYear, startMonth, 1, 12, 0, 0, 0);
-  
+  const loopDate = new Date(startYear, startMonth, 1, 12, 0, 0, 0);
+
   while(loopDate <= meeting) {
     // Use first day of month as the due date
     const dateStr = loopDate.toISOString().split('T')[0];
     const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
-    
+
     // Check if there's already a record for this month
     const existingRecord = fullLedger.find((l) => l.date.startsWith(yearMonth));
-    
-    if (!existingRecord) {
+
+    const isExemptMonth = exemptFrom !== null && (
+      loopDate.getFullYear() > exemptFrom.getFullYear() ||
+      (loopDate.getFullYear() === exemptFrom.getFullYear() && loopDate.getMonth() >= exemptFrom.getMonth())
+    );
+
+    if (!existingRecord && !isExemptMonth) {
       // No record exists, create a planned one
       // Name it after the month it falls in (e.g., 2025-12-01 = December dues)
-      const monthName = loopDate.toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US', { month: 'long', year: 'numeric' });
-      const dueName = lang === 'tr' ? 'Aidatı' : 'Monthly Due';
+      const monthName = loopDate.toLocaleString(LOCALES[lang] ?? LOCALES.en, { month: 'long', year: 'numeric' });
+      const dueName = lang === 'tr' ? 'Aidatı' : lang === 'de' ? 'Hausgeld' : 'Monthly Due';
       // If the month has passed (before current month), mark as unpaid, otherwise planned
       const loopMonth = loopDate.getMonth();
       const loopYear = loopDate.getFullYear();
@@ -127,6 +139,79 @@ export const getBaseClasses = (darkMode: boolean): BaseClasses => ({
   header: darkMode ? 'bg-slate-800 shadow-slate-900/20' : 'bg-white shadow-sm',
   hover: darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
 });
+
+/**
+ * Dil seçimine karşılık gelen ülke telefon kodu.
+ * Kullanıcı kitlesi: Türkiye (tr), Almanya (de), İrlanda (en).
+ * Kullanıcı numarayı "+" ile yazarsa bu varsayılan devre dışı kalır.
+ */
+export const DIAL_CODES: Record<Language, string> = {
+  tr: '90',
+  de: '49',
+  en: '353' // İrlanda
+};
+
+/**
+ * Dil seçimine karşılık gelen tarih/sayı yerel ayarı.
+ */
+export const LOCALES: Record<Language, string> = {
+  tr: 'tr-TR',
+  de: 'de-DE',
+  en: 'en-IE' // İrlanda: gün/ay/yıl, en-US'ten farklı
+};
+
+/**
+ * Girdinin email mi telefon mu olduğunu ayırt eder.
+ * Supabase signInWithPassword email ve telefonu ayrı alanlarda bekliyor.
+ */
+export const isEmail = (input: string): boolean => input.includes('@');
+
+// E.164 en fazla 15 hane; alt sınır kısa/eksik girdileri elemek için
+const isValidE164Length = (digits: string) => digits.length >= 8 && digits.length <= 15;
+
+/**
+ * Telefon numarasını Supabase'in beklediği E.164 formatına çevirir.
+ * Ülkeye özel hane sayısı varsaymaz - kural aynı: baştaki şehirlerarası "0"
+ * atılır, yerine ülke kodu gelir.
+ *   TR "0507 231 84 20"  + dialCode 90  -> +905072318420
+ *   DE "0151 23456789"   + dialCode 49  -> +4915123456789
+ *   IE "085 123 4567"    + dialCode 353 -> +353851234567
+ *
+ * Kullanıcı ülke kodunu kendi yazdıysa dialCode yok sayılır. İki biçim de
+ * kabul edilir ve Avrupa'daki her ülke kodu için çalışır:
+ *   "+49 151 23456789"  -> +4915123456789
+ *   "0049 151 23456789" -> +4915123456789   (00 = uluslararası önek)
+ *
+ * Çevrilemeyen girdide null döner - sessizce yanlış numara üretmez.
+ */
+export const toE164 = (input: string, dialCode: string = DIAL_CODES.tr): string | null => {
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return null;
+
+  // Ülke kodu açıkça yazılmışsa olduğu gibi kabul et: "+49..." veya "0049..."
+  if (trimmed.startsWith('+')) return isValidE164Length(digits) ? `+${digits}` : null;
+  if (digits.startsWith('00')) {
+    const international = digits.slice(2);
+    return isValidE164Length(international) ? `+${international}` : null;
+  }
+
+  // Baştaki rakamlar ülke koduna benziyor diye kırpmak tek başına güvenli değil:
+  // bazı milli numaralar kendi ülke koduyla başlar (İtalyan cep "391 234 5678").
+  // Sadece uzunluk gerçekten ülke kodu + milli numara olacak kadar fazlaysa kırp;
+  // aksi halde numarayı olduğu gibi milli numara say.
+  const looksPrefixed =
+    digits.startsWith(dialCode) && digits.length >= dialCode.length + 9;
+
+  const national = digits.startsWith('0')
+    ? digits.slice(1)
+    : looksPrefixed
+      ? digits.slice(dialCode.length)
+      : digits;
+
+  const full = `${dialCode}${national}`;
+  return isValidE164Length(full) ? `+${full}` : null;
+};
 
 /**
  * Çeviri fonksiyonu oluşturur

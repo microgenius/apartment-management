@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Resident, LedgerItem } from '../types';
+import type { Resident, LedgerItem, ResidentDuty } from '../types';
 
 export const residentsService = {
   // Get all residents with their ledgers
@@ -18,6 +18,21 @@ export const residentsService = {
 
     if (ledgersError) throw ledgersError;
 
+    // Görev artık kişide (user_profiles) duruyor; aidat muafiyeti ise daireye
+    // uygulanıyor. Görevlinin bağlı olduğu daireyi muaf olarak işaretliyoruz,
+    // böylece helpers.ts'teki üretim mantığı değişmeden çalışmaya devam ediyor.
+    const { data: dutyHolders } = await supabase
+      .from('user_profiles')
+      .select('resident_id, duty, duty_since')
+      .not('duty', 'is', null);
+
+    const dutyByResident = new Map<number, { duty: ResidentDuty; since: string | null }>();
+    (dutyHolders || []).forEach(h => {
+      if (h.resident_id != null) {
+        dutyByResident.set(h.resident_id, { duty: h.duty as ResidentDuty, since: h.duty_since });
+      }
+    });
+
     return residents.map(resident => ({
       id: resident.id,
       door: resident.door,
@@ -25,7 +40,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
-      user_id: resident.user_id,
+      duty: dutyByResident.get(resident.id)?.duty ?? null,
+      duty_since: dutyByResident.get(resident.id)?.since ?? null,
       ledger: (ledgers || [])
         .filter(l => l.resident_id === resident.id)
         .map(l => ({
@@ -58,6 +74,13 @@ export const residentsService = {
 
     if (ledgersError) throw ledgersError;
 
+    const { data: dutyHolder } = await supabase
+      .from('user_profiles')
+      .select('duty, duty_since')
+      .eq('resident_id', id)
+      .not('duty', 'is', null)
+      .maybeSingle();
+
     return {
       id: resident.id,
       door: resident.door,
@@ -65,7 +88,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
-      user_id: resident.user_id,
+      duty: (dutyHolder?.duty as ResidentDuty) ?? null,
+      duty_since: dutyHolder?.duty_since ?? null,
       ledger: (ledgers || []).map(l => ({
         id: l.id,
         date: l.date,
@@ -78,7 +102,7 @@ export const residentsService = {
   },
 
   // Create new resident
-  async create(resident: Omit<Resident, 'id' | 'ledger' | 'user_id'>): Promise<Resident> {
+  async create(resident: Omit<Resident, 'id' | 'ledger' | 'duty' | 'duty_since'>): Promise<Resident> {
     const { data, error } = await supabase
       .from('residents')
       .insert({
@@ -100,7 +124,7 @@ export const residentsService = {
   },
 
   // Update resident
-  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger' | 'user_id'>>): Promise<void> {
+  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger' | 'duty' | 'duty_since'>>): Promise<void> {
     const { error } = await supabase
       .from('residents')
       .update(updates)
@@ -115,26 +139,6 @@ export const residentsService = {
       .from('residents')
       .delete()
       .eq('id', id);
-
-    if (error) throw error;
-  },
-
-  // Link a resident record to an auth user (opsiyonel — her resident'ın user'ı olmak zorunda değil)
-  async linkUser(residentId: number, userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('residents')
-      .update({ user_id: userId })
-      .eq('id', residentId);
-
-    if (error) throw error;
-  },
-
-  // Unlink a resident record from its auth user
-  async unlinkUser(residentId: number): Promise<void> {
-    const { error } = await supabase
-      .from('residents')
-      .update({ user_id: null })
-      .eq('id', residentId);
 
     if (error) throw error;
   }

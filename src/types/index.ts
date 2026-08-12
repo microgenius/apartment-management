@@ -3,7 +3,7 @@
 // ==========================================
 
 // Temel Tipler
-export type Language = 'tr' | 'en';
+export type Language = 'tr' | 'en' | 'de';
 export type UserRole = 'resident' | 'admin';
 export type ThemeName = 'blue' | 'purple' | 'green' | 'orange';
 export type LedgerStatus = 'paid' | 'unpaid' | 'planned' | 'partial_paid';
@@ -20,6 +20,9 @@ export interface LedgerItem {
   paid_amount?: number; // For partial payments - tracks how much has been paid
 }
 
+/** Site görevi. Görevi olan daireden aidat alınmaz. */
+export type ResidentDuty = 'manager' | 'assistant';
+
 export interface Resident {
   id: number;
   door: string;
@@ -27,7 +30,10 @@ export interface Resident {
   type: 'Kiracı' | 'Ev Sahibi';
   phone: string;
   status: 'Dolu' | 'Boş';
-  user_id: string | null; // Bağlı auth kullanıcısı (login hesabı olmayabilir)
+  duty: ResidentDuty | null;
+  /** Göreve başlama tarihi. Muafiyet bu aydan itibaren işler; öncesindeki
+   *  borçlar olduğu gibi kalır. */
+  duty_since: string | null;
   ledger: LedgerItem[];
 }
 
@@ -86,6 +92,8 @@ export interface InfoItem {
   updated_at: string;
 }
 
+import type { ResidentContact } from '../services/residentContactsService';
+
 // Component Props Tipleri
 export interface CommonProps {
   baseClasses: BaseClasses;
@@ -120,6 +128,7 @@ export interface HeaderProps {
 
 export interface FinancialsViewProps extends CommonProps {
   userRole: string;
+  lang: Language;
   residents: Resident[];
   setResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
   meetingDate: string;
@@ -130,6 +139,8 @@ export interface FinancialsViewProps extends CommonProps {
 export interface DashboardViewProps extends CommonProps {
   userRole: string;
   residents: Resident[];
+  contacts: ResidentContact[];
+  refetchContacts: () => void;
   setSelectedApartment: (resident: Resident | null) => void;
   selectedApartment: Resident | null;
   calculateTotalDebt: (ledgerItems: LedgerItem[]) => number;
@@ -161,6 +172,7 @@ export interface SettingsViewProps extends CommonProps {
   setDebtStartDate: (date: string) => void;
   residents: Resident[];
   refetchResidents: () => void;
+  lang: Language; // telefon numarasını doğru ülke koduyla normalize etmek için
 }
 
 export interface InfoViewProps extends CommonProps {}

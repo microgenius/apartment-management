@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign } from 'lucide-react';
-import type { SettingsViewProps } from '../../types';
+import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck } from 'lucide-react';
+import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { userProfilesService } from '../../services/userProfilesService';
-import { residentsService } from '../../services/residentsService';
+import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
+import { DIAL_CODES, LOCALES } from '../../utils/helpers';
+import { COUNTRIES } from '../../constants/countries';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
@@ -19,7 +20,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   setDebtStartDate,
   darkMode,
   residents,
-  refetchResidents
+  refetchResidents,
+  lang
 }) => {
   const { user, createUser, refreshProfile } = useAuth();
   const [tempDate, setTempDate] = useState(meetingDate);
@@ -29,6 +31,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // New User Form
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
+  // Sakinler Türkiye dışında da yaşayabiliyor; ülke kodu dilden bağımsız seçilebilmeli
+  const [newUserDialCode, setNewUserDialCode] = useState<string>(DIAL_CODES[lang]);
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'resident' | 'admin'>('resident');
@@ -36,11 +41,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newUserResidentId, setNewUserResidentId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // Henüz bir kullanıcı hesabına bağlanmamış sakinler (link zorunlu değil, opsiyonel)
-  const unlinkedResidents = residents.filter((r) => !r.user_id);
-
   // Transfer Admin
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [selectedNewAdmin, setSelectedNewAdmin] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
@@ -69,9 +71,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     loadUsers();
   }, []);
 
+  // Tüm profiller tutuluyor: daire başına hesap sayısını göstermek için
+  // admin'ler de gerekli. Yöneticilik devri listesi kullanıldığı yerde filtreleniyor.
   const loadUsers = async () => {
-    const users = await userProfilesService.getAllProfiles();
-    setAllUsers(users.filter(u => u.role === 'resident'));
+    setAllUsers(await userProfilesService.getAllProfiles());
+  };
+
+  const transferCandidates = allUsers.filter(u => u.role === 'resident');
+
+  // Görev atama (yönetici / yardımcısı). Görevi olan daireden aidat alınmaz.
+  const [savingDuty, setSavingDuty] = useState<ResidentDuty | null>(null);
+
+  // Görev KİŞİYE atanıyor: yetki kişiye ait olmalı, daireye değil - bir daireye
+  // birden fazla hesap bağlanabildiği için görevlinin eşi de yetki kazanırdı.
+  // Aidat muafiyeti ise görevlinin bağlı olduğu daireye uygulanıyor.
+  const handleDutyChange = async (duty: ResidentDuty, userId: string) => {
+    setSavingDuty(duty);
+    try {
+      const current = allUsers.find(u => u.duty === duty);
+      if (current && current.id !== userId) {
+        await userProfilesService.clearDuty(current.id);
+      }
+      if (userId) {
+        await userProfilesService.setDuty(userId, duty);
+      }
+      await loadUsers();
+      refetchResidents();
+      setSuccessModal({ isOpen: true, title: t('success'), message: t('duty_updated') });
+    } catch (error) {
+      console.error('Error updating duty:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('duty_update_failed') });
+    } finally {
+      setSavingDuty(null);
+    }
   };
 
   const handleSaveDate = async () => {
@@ -96,19 +128,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         newUserPassword,
         newUserName,
         newUserRole,
-        newUserApartment || undefined
+        newUserApartment || undefined,
+        newUserPhone || undefined,
+        newUserDialCode
       );
 
       if (error) {
-        setErrorModal({ isOpen: true, title: 'Hata', message: 'Kullanıcı oluşturulurken hata: ' + error.message });
+        const message =
+          error.message === 'NO_IDENTIFIER' ? t('create_user_no_identifier')
+          : error.message === 'INVALID_PHONE' ? t('login_error_phone')
+          : 'Kullanıcı oluşturulurken hata: ' + error.message;
+        setErrorModal({ isOpen: true, title: 'Hata', message });
       } else {
         if (userId && newUserResidentId) {
-          // Eşleştirme opsiyoneldi; seçilmişse sakin kaydını yeni hesaba bağla
-          await residentsService.linkUser(Number(newUserResidentId), userId);
+          // Eşleştirme opsiyonel; seçilmişse hesabı sakin kaydına bağla.
+          // Aynı daireye başka hesaplar bağlıysa sorun değil, hepsi birlikte yaşar.
+          await userProfilesService.linkResident(userId, Number(newUserResidentId));
           refetchResidents();
         }
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
         setNewUserEmail('');
+        setNewUserPhone('');
         setNewUserPassword('');
         setNewUserName('');
         setNewUserRole('resident');
@@ -300,7 +340,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
-                {t('email')} {t('required_field')}
+                {t('email')}
               </label>
               <input
                 type="email"
@@ -308,9 +348,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setNewUserEmail(e.target.value)}
                 className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
                 placeholder={t('placeholder_email')}
-                required
               />
             </div>
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('phone')}
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={newUserDialCode}
+                onChange={(e) => setNewUserDialCode(e.target.value)}
+                aria-label={t('country_code')}
+                className={`w-32 shrink-0 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              >
+                {COUNTRIES.map(({ code, name, flag }) => (
+                  <option key={code} value={code}>{flag} +{code} {name}</option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                value={newUserPhone}
+                onChange={(e) => setNewUserPhone(e.target.value)}
+                className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
+                placeholder={t('placeholder_phone')}
+              />
+            </div>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('identifier_hint')}</p>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('country_code_hint')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -352,10 +418,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
             >
               <option value="">{t('link_resident_none')}</option>
-              {unlinkedResidents.map((r) => (
-                <option key={r.id} value={r.id}>{r.door} - {r.name}</option>
-              ))}
+              {/* Bağlı olanlar da listede: bir daireye birden fazla hesap bağlanabilir
+                  (ev sahibi + eş + kiracı). Kaç hesabı olduğu parantezde gösteriliyor. */}
+              {residents.map((r) => {
+                const count = allUsers.filter((u) => u.resident_id === r.id).length;
+                return (
+                  <option key={r.id} value={r.id}>
+                    {r.door} - {r.name}{count > 0 ? ` (${count} ${t('linked_accounts')})` : ''}
+                  </option>
+                );
+              })}
             </select>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('link_resident_hint')}</p>
           </div>
 
           <div>
@@ -398,6 +472,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </form>
       </div>
 
+      {/* Site Görevleri - görevi olan daireden aidat alınmaz */}
+      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
+          <ShieldCheck className="mr-2" size={20} />
+          {t('duties_title')}
+        </h3>
+        <p className={`text-sm mb-4 ${baseClasses.textSub}`}>{t('duties_desc')}</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(['manager', 'assistant'] as ResidentDuty[]).map((duty) => {
+            const holder = allUsers.find((u) => u.duty === duty);
+            const holderFlat = residents.find((r) => r.id === holder?.resident_id);
+            return (
+              <div key={duty}>
+                <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+                  {t(duty === 'manager' ? 'manager_title' : 'assistant_title')}
+                </label>
+                <select
+                  value={holder?.id ?? ''}
+                  disabled={savingDuty !== null}
+                  onChange={(e) => handleDutyChange(duty, e.target.value)}
+                  className={`w-full p-3 rounded-lg border outline-none disabled:opacity-50 ${baseClasses.input}`}
+                >
+                  <option value="">{t('duty_none')}</option>
+                  {allUsers.map((u) => {
+                    const flat = residents.find((r) => r.id === u.resident_id);
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name}{flat ? ` (${flat.door})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {holder && (
+                  <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
+                    {holderFlat
+                      ? `${t('duty_exempt_since')}: ${holder.duty_since ? new Date(holder.duty_since).toLocaleDateString(LOCALES[lang]) : '-'} (${holderFlat.door})`
+                      : t('duty_no_flat_warning')}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Transfer Admin Rights */}
       <div className={`p-6 rounded-xl border ${darkMode ? 'border-orange-900/30 bg-orange-900/10' : 'border-orange-200 bg-orange-50'}`}>
         <h3 className={`font-bold text-lg mb-4 flex items-center ${darkMode ? 'text-orange-400' : 'text-orange-700'}`}>
@@ -423,7 +543,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
               >
                 <option value="">{t('select_user')}</option>
-                {allUsers.map(user => (
+                {transferCandidates.map(user => (
                   <option key={user.id} value={user.id}>
                     {user.full_name} {user.apartment_info ? `(${user.apartment_info})` : ''}
                   </option>
@@ -445,7 +565,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {t('confirm_transfer')}
               </p>
               <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
-                {allUsers.find(u => u.id === selectedNewAdmin)?.full_name} {t('transfer_confirm_msg')}
+                {transferCandidates.find(u => u.id === selectedNewAdmin)?.full_name} {t('transfer_confirm_msg')}
               </p>
             </div>
             <div className="flex gap-4">

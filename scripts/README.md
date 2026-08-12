@@ -210,3 +210,261 @@ To remove the setting:
 ```sql
 DELETE FROM settings WHERE key = 'debt_start_date';
 ```
+
+---
+
+## 5. Link Residents to User Accounts (`add_residents_user_id.sql`)
+
+### Purpose
+Adds a `user_id` column to `residents` so a resident record can be tied to an
+actual login account. Before this, the app matched a logged-in user to their
+resident row by comparing `user_profiles.full_name` to `residents.name` - a
+typo, a surname change or a double space silently detached someone from their
+own ledger.
+
+### Important: the link is OPTIONAL
+The column is **nullable on purpose**. Not every resident record has a user
+account behind it - empty flats, tenants who never sign up, or rows the admin
+keeps purely for bookkeeping. It is **unique when set**, so one account maps
+to at most one resident row.
+
+### How to Run
+Supabase Dashboard > **SQL Editor** > New Query > paste > **Run**.
+Idempotent - safe to run multiple times.
+
+### After Running
+- `FinancialsView` matches on `user_id` first, falling back to the old name
+  match only for rows that aren't linked yet.
+- Admins can link a new account to a resident row from
+  **Settings > Yeni Kullanıcı Oluştur > Sakin Kaydına Bağla** (optional field).
+
+### Rollback (if needed)
+```sql
+DROP INDEX IF EXISTS idx_residents_user_id_unique;
+ALTER TABLE residents DROP COLUMN IF EXISTS user_id;
+```
+
+---
+
+## 6. Backfill Existing Accounts (`backfill_residents_user_id.sql`)
+
+### Purpose
+`add_residents_user_id.sql` only adds the column - every existing resident
+starts at `user_id = NULL`. This script links **already-registered users** to
+their resident row in bulk, so you don't have to click through them one by one.
+
+**Run this after `add_residents_user_id.sql`.**
+
+### How It Matches
+It reuses the old name match, but only commits **unambiguous** ones:
+- only rows where `user_id IS NULL`
+- skips users already linked to some resident
+- a normalised name (trimmed, collapsed whitespace, lowercased) must match
+  **exactly one** resident and **exactly one** user
+
+Anything ambiguous is deliberately left for manual linking. There is no fuzzy
+or partial matching - a wrong link would expose one resident's ledger to
+another, so the script errs toward doing nothing.
+
+### How to Run
+The file is split into three parts - run them in order:
+1. **STEP 1 (preview)** - changes nothing, lists what *would* be linked and
+   what would be skipped. Review this before continuing.
+2. **STEP 2 (apply)** - performs the linking.
+3. **STEP 3 (report)** - lists residents with no account, and accounts not
+   linked to any resident. Handle those from the Settings UI.
+
+Idempotent - re-running only links whatever is still unlinked.
+
+### Rollback (if needed)
+Clears every link (does not drop the column):
+```sql
+UPDATE residents SET user_id = NULL;
+```
+
+---
+
+## 7. Enable Row Level Security (`enable_rls.sql`)
+
+### Purpose
+RLS is off by default in this project, which means the anon key alone is enough
+to read, write or delete any row in any table. This script turns RLS on.
+
+### Scope (deliberately partial)
+- **Writes** (`INSERT`/`UPDATE`/`DELETE`) are locked to admins, except where
+  residents legitimately create their own rows (requests, community posts,
+  receipt requests).
+- **Reads** stay as permissive as they are today - any authenticated user can
+  read the tables the app already fetches wholesale and filters client-side.
+
+Tightening `residents`/`ledgers` reads to "own row or admin" is the natural
+next step, but it must wait until residents are actually linked via
+`user_id` (see scripts 5 and 6). Doing it before the backfill would lock every
+resident out of their own debt, since nobody is linked yet.
+
+### ⚠️ Before Running
+Test on a staging project first. Misconfigured policies can lock the app out
+entirely. Verify afterwards that a resident can still see their own ledger and
+that an admin can still record payments.
+
+### Rollback (if needed)
+```sql
+ALTER TABLE residents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ledgers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE community_posts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE info DISABLE ROW LEVEL SECURITY;
+ALTER TABLE receipt_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY;
+```
+
+---
+
+## 8. Multiple Accounts per Resident (`move_link_to_user_profiles.sql`)
+
+### Purpose
+Moves the resident↔account link from `residents.user_id` to
+`user_profiles.resident_id`, so **one flat can have several accounts** - the
+owner, their spouse and the tenant can each log in and all see the same ledger.
+
+### Why the column had to move
+`residents.user_id` sits on the resident row, so it can only ever hold one
+account. Dropping its unique index would have allowed the *opposite* of what
+we want (many flats sharing one account). Putting `resident_id` on
+`user_profiles` gives the correct shape: many accounts → one flat, while each
+account still points at exactly one flat.
+
+**Run after** `add_residents_user_id.sql` (and `backfill_residents_user_id.sql`
+if you used it). Existing links are carried over automatically. Idempotent.
+
+### How to Run
+Run the steps in order:
+1. **STEP 1** - adds `user_profiles.resident_id` (nullable, deliberately *not*
+   unique) plus an index.
+2. **STEP 2** - copies every existing `residents.user_id` link across.
+3. **STEP 3** - verification query. Every old link must show `eslesti = true`.
+   If any row says `false`, stop and investigate.
+4. **STEP 4** - drops the old `residents.user_id` column. **Commented out on
+   purpose**: uncomment and run only once STEP 3 looks right, because dropping
+   it destroys the old links.
+5. **STEP 5** - reports accounts with no flat, and each flat's account count
+   (0 is normal for empty flats and residents who never signed up).
+
+### After Running
+- A resident sees their ledger via `user_profiles.resident_id`; the old name
+  match remains only as a fallback for accounts an admin hasn't linked yet.
+- **Settings > Yeni Kullanıcı Oluştur > Sakin Kaydına Bağla** now lists *all*
+  flats, with the current account count next to each, instead of hiding flats
+  that already have an account.
+
+### Rollback (if needed)
+Only possible while STEP 4 has not been run:
+```sql
+UPDATE user_profiles SET resident_id = NULL;
+```
+
+---
+
+## 9. Building Duties & Dues Exemption (`add_resident_duties.sql`)
+
+### Purpose
+Lets an admin appoint a **manager** and an **assistant manager** from
+Settings, and exempts those two flats from monthly dues.
+
+### Why the duty lives on `residents`, not `user_profiles`
+Dues are charged to the flat, so the exemption has to apply to the flat's
+ledger. The person holding the duty may not even have a login account.
+
+### Why `duty_since` exists
+Dues are not stored rows - `getResidentLedgerWithPlanning` synthesizes them
+for every month from `debt_start_date` onwards. Without a start date, making
+someone manager would retroactively erase the dues they owed *before* taking
+the role. The exemption therefore applies only from the month of `duty_since`
+(set to the assignment date automatically); earlier months keep generating
+debt as normal, and any real `ledgers` rows are never touched.
+
+### Constraints
+A partial unique index (`WHERE duty IS NOT NULL`) allows at most one manager
+and one assistant at a time. Assigning a duty to a second flat clears it from
+the first.
+
+### How to Run
+Supabase Dashboard > **SQL Editor** > New Query > paste > **Run**.
+Idempotent. STEP 2 lists whoever currently holds a duty.
+
+### After Running
+**Settings > Site Görevleri** shows two dropdowns listing every flat. The
+exemption date is displayed under the selected flat. Clearing a duty puts the
+flat back on dues from that point on - months that were exempt stay exempt,
+because no rows were ever generated for them.
+
+### Rollback (if needed)
+```sql
+UPDATE residents SET duty = NULL, duty_since = NULL;
+```
+
+---
+
+## 10. Duty Moves to the Person (`move_duty_to_user_profiles.sql`)
+
+### Purpose
+Moves `duty` / `duty_since` from `residents` to `user_profiles`.
+
+### Why (correction to script 9)
+Script 9 put the duty on the flat, which is right for the **dues exemption**
+(dues are charged to the flat) but wrong for **authority**: a flat can have
+several linked accounts, so the manager's spouse would have silently gained
+manager powers. Authority belongs to a person.
+
+New shape:
+- `user_profiles.duty` carries the authority (see `src/utils/permissions.ts`)
+- the dues exemption is applied to the flat the duty holder is linked to
+  (`resident_id`), so `helpers.ts` keeps working unchanged
+
+When the duty changes hands the previous holder loses both the authority and
+the exemption automatically - no role update needed.
+
+### How to Run
+Run after scripts 6 and 9. STEP 2 only migrates flats that have **exactly one**
+linked account; where a flat has several accounts the system cannot know which
+person holds the office, so those are listed in STEP 4 for you to set from
+Settings. STEP 5 (dropping the old columns) is commented out on purpose.
+
+### Rollback (if needed)
+Only while STEP 5 has not been run:
+```sql
+UPDATE user_profiles SET duty = NULL, duty_since = NULL;
+```
+
+---
+
+## 11. Per-Flat Contact People (`add_resident_contacts.sql`)
+
+### Purpose
+`residents` holds a single person per flat (`name` + `phone` + `type`), so when
+a tenant lives there the owner's details were lost. `resident_contacts` lets a
+flat carry any number of people: owner, tenant, emergency contact, proxy.
+
+`residents.name` / `residents.phone` are **not** removed - the flat list, the
+financials screen and the legacy name matching still use them. This table adds
+a contact layer on top.
+
+### What It Does
+- Creates `resident_contacts` (type, name, phone, email, is_primary, note)
+- A partial unique index allows **one primary contact per flat**, unlimited
+  secondary ones
+- Seeds one primary contact per flat from the current `residents.name/phone`
+  (flats with an empty phone are skipped)
+
+### Who Can Edit
+The rule is: **your own flat you can edit yourself; anyone else's flat only the
+manager or the assistant manager.** Enforced in the UI by
+`src/utils/permissions.ts` and in the database by the `resident_contacts`
+policies in `enable_rls.sql`. The UI check alone is not security - anyone with
+the anon key can call the service directly, so run `enable_rls.sql`.
+
+### Rollback (if needed)
+```sql
+DROP TABLE IF EXISTS resident_contacts;
+```

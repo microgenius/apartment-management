@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import type { Language, ThemeName, Resident } from './types';
 import { useAuth } from './contexts/AuthContext';
-import { TRANSLATIONS } from './constants/translations';
+import { TRANSLATIONS, isLanguage } from './constants/translations';
 import { THEMES } from './constants/themes';
 import { calculateTotalDebt, getResidentLedgerWithPlanning, getBaseClasses, createTranslator } from './utils/helpers';
 import { useResidents } from './hooks/useResidents';
 import { useRequests } from './hooks/useRequests';
 import { useCommunityPosts } from './hooks/useCommunityPosts';
+import { useResidentContacts } from './hooks/useResidentContacts';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { CookieBanner } from './components/CookieBanner';
@@ -29,7 +30,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('financials');
   const [lang, setLang] = useState<Language>(() => {
     const saved = cookies.get('app_language');
-    return (saved === 'tr' || saved === 'en') ? saved as Language : 'tr';
+    return isLanguage(saved) ? saved : 'tr';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [theme, setTheme] = useState<ThemeName>(() => {
@@ -59,6 +60,7 @@ export default function App() {
   const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate } = useSettings();
   const { requests, setRequests } = useRequests();
   const { communityPosts, setCommunityPosts } = useCommunityPosts();
+  const { contacts, refetch: refetchContacts } = useResidentContacts();
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -115,6 +117,8 @@ export default function App() {
                 residents={residents} 
                 setSelectedApartment={setSelectedApartment} 
                 selectedApartment={selectedApartment}
+                contacts={contacts}
+                refetchContacts={refetchContacts}
                 calculateTotalDebt={calculateTotalDebt}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
                 baseClasses={baseClasses} 
@@ -125,9 +129,10 @@ export default function App() {
             )}
             
             {activeTab === 'financials' && (
-              <FinancialsView 
-                userRole={userRole || 'resident'} 
-                residents={residents} 
+              <FinancialsView
+                userRole={userRole || 'resident'}
+                lang={lang}
+                residents={residents}
                 setResidents={setResidents}
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme}
@@ -181,6 +186,7 @@ export default function App() {
                 darkMode={darkMode}
                 residents={residents}
                 refetchResidents={refetchResidents}
+                lang={lang}
               />
             )}
 
