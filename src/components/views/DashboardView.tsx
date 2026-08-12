@@ -2,11 +2,10 @@ import React from 'react';
 import { MapPin, Eye, EyeOff, X, User } from 'lucide-react';
 import type { DashboardViewProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { canEditResident } from '../../utils/permissions';
+import { canEditResident, canManageOthers } from '../../utils/permissions';
 import { ResidentContacts } from '../ResidentContacts';
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
-  userRole, 
   residents, 
   setSelectedApartment, 
   selectedApartment, 
@@ -20,6 +19,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   refetchContacts
 }) => {
   const { userProfile } = useAuth();
+  // Borç durumlarını görmek yönetim işi; görevden türüyor, rolden değil
+  const canManage = canManageOthers(userProfile);
 
   return (
   <div className="p-4 animate-fade-in">
@@ -28,8 +29,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <MapPin className={`mr-2 ${currentTheme.text}`} /> {t('map_title')}
       </h2>
       <div className={`flex items-center text-xs px-3 py-1 rounded-full border ${baseClasses.border} ${baseClasses.textSub}`}>
-        {userRole === 'admin' ? <Eye size={14} className="mr-2 text-green-500"/> : <EyeOff size={14} className="mr-2 text-slate-400"/>}
-        {userRole === 'admin' ? t('manager_view_desc') : t('resident_view_desc')}
+        {canManage ? <Eye size={14} className="mr-2 text-green-500"/> : <EyeOff size={14} className="mr-2 text-slate-400"/>}
+        {canManage ? t('manager_view_desc') : t('resident_view_desc')}
       </div>
     </div>
 
@@ -38,7 +39,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {residents.map((apt) => {
           const aptLedger = getResidentLedgerWithPlanning(apt);
           const totalDebt = calculateTotalDebt(aptLedger);
-          const isAdmin = userRole === 'admin';
+          const isAdmin = canManage;
           
           let borderColorClass = baseClasses.border;
           let bgClass = '';
@@ -132,7 +133,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className={`font-medium ${baseClasses.textMain}`}>{selectedApartment.phone}</span>
             </div>
             
-            {userRole === 'admin' && (() => {
+            {canManage && (() => {
               const selectedLedger = getResidentLedgerWithPlanning(selectedApartment);
               const selectedDebt = calculateTotalDebt(selectedLedger);
               return (

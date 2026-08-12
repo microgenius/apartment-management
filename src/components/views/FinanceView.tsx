@@ -111,12 +111,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         <h2 className={`text-2xl font-bold ${baseClasses.textMain} flex items-center`}>
           <Wallet className={`mr-2 ${currentTheme.text}`} /> {t('finance')}
         </h2>
-        <button
-          onClick={() => setReportOpen(true)}
-          className={`${currentTheme.primary} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:opacity-90`}
-        >
-          <FileText size={18} /> {t('create_report')}
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setReportOpen(true)}
+            className={`${currentTheme.primary} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:opacity-90`}
+          >
+            <FileText size={18} /> {t('create_report')}
+          </button>
+        )}
       </div>
 
       {/* Özet */}

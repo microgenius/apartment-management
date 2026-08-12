@@ -16,6 +16,7 @@ import {
 import type { SidebarProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageOthers } from '../../utils/permissions';
+import { isPhoneLoginEmail } from '../../utils/helpers';
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
@@ -29,6 +30,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onPasswordClick
 }) => {
   const { userProfile, user } = useAuth();
+
+  // Telefonla açılan hesapların e-postası "905321234567@phone..." gibi teknik
+  // bir adres; kullanıcıya gösterilecek bir şey değil. Sırayla: profildeki ad,
+  // auth metadata'sındaki ad, telefon numarası, gerçek e-posta.
+  const displayName =
+    userProfile?.full_name
+    || (user?.user_metadata?.display_name as string | undefined)
+    || (user?.user_metadata?.full_name as string | undefined)
+    || userProfile?.phone
+    || (isPhoneLoginEmail(user?.email) ? undefined : user?.email)
+    || t('user');
 
   // Aynı state iki işi görüyor: masaüstünde daralt/genişlet, mobilde çekmece.
   // Bu yüzden "kapat" davranışı yalnızca mobilde uygulanmalı, yoksa
@@ -87,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className={`flex items-center p-2 ${baseClasses.textSub}`}>
           <User size={20} className="mr-3" />
           <div className="overflow-hidden">
-            <p className="text-sm font-bold truncate">{userProfile?.full_name || user?.email || 'Kullanıcı'}</p>
+            <p className="text-sm font-bold truncate">{displayName}</p>
             {userProfile?.apartment_info && (
               <p className="text-xs opacity-70">{userProfile.apartment_info}</p>
             )}

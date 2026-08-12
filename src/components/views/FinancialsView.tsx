@@ -9,9 +9,9 @@ import { useReceiptRequests } from '../../hooks/useReceiptRequests';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES } from '../../utils/helpers';
+import { canManageOthers } from '../../utils/permissions';
 
 export const FinancialsView: React.FC<FinancialsViewProps> = ({
-  userRole,
   lang,
   residents,
   setResidents, 
@@ -24,6 +24,10 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   getResidentLedgerWithPlanning 
 }) => {
   const { userProfile, user } = useAuth();
+  // Tahsilat ve tüm dairelerin borcunu görmek operasyonel bir iş: yönetici ve
+  // yardımcısına da açık olmalı. role='admin' teknik süper-kullanıcı olduğu
+  // için tek başına doğru ölçüt değil.
+  const canManage = canManageOthers(userProfile);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedDebtor, setSelectedDebtor] = useState<typeof residents[0] | null>(null);
   const [selectedResidentForDetail, setSelectedResidentForDetail] = useState<typeof residents[0] | null>(null);
@@ -40,7 +44,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   
   // Fetch receipt requests based on role
   const { receiptRequests, refetch: refetchReceiptRequests } = useReceiptRequests(
-    userRole === 'admin' ? undefined : user?.id
+    canManage ? undefined : user?.id
   );
 
   // Resident view data - must be called before any conditional returns (React hooks rule)
@@ -190,7 +194,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   };
 
   // Admin Görünümü
-  if (userRole === 'admin') {
+  if (canManage) {
     // Show detail view if a resident is selected
     if (selectedResidentForDetail) {
       const detailLedgerUnsorted = getResidentLedgerWithPlanning(selectedResidentForDetail);
