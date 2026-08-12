@@ -36,7 +36,11 @@ export default function App() {
     const saved = cookies.get('app_language');
     return isLanguage(saved) ? saved : 'tr';
   });
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  // Mobilde kapalı başlar: açık başlarsa çekmece uygulamanın üstünü kaplıyor.
+  // Masaüstünde açık, çünkü orada aynı state genişlet/daralt anlamına geliyor.
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches
+  );
   const [theme, setTheme] = useState<ThemeName>(() => {
     const saved = cookies.get('app_theme');
     return (saved === 'blue' || saved === 'green' || saved === 'purple' || saved === 'orange') ? saved as ThemeName : 'blue';

@@ -30,7 +30,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { userProfile, user } = useAuth();
 
+  // Aynı state iki işi görüyor: masaüstünde daralt/genişlet, mobilde çekmece.
+  // Bu yüzden "kapat" davranışı yalnızca mobilde uygulanmalı, yoksa
+  // masaüstünde her menü tıklamasında menü daralırdı.
+  const isMobile = () => window.matchMedia('(max-width: 767px)').matches;
+  const closeOnMobile = () => { if (isMobile()) setIsSidebarOpen(false); };
+
+  const selectTab = (tab: string) => {
+    setActiveTab(tab);
+    closeOnMobile();
+  };
+
   return (
+    <>
+    {/* Menü dışına dokununca kapansın. Yalnızca mobilde ve menü açıkken var;
+        masaüstünde menü zaten sayfa akışının parçası. */}
+    {isSidebarOpen && (
+      <button
+        type="button"
+        aria-label={t('close')}
+        onClick={() => setIsSidebarOpen(false)}
+        className="fixed inset-0 z-10 bg-black/50 md:hidden"
+      />
+    )}
     <aside className={`fixed md:relative z-20 h-full w-64 shadow-xl transition-transform duration-300 ease-in-out ${baseClasses.sidebar} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-20 lg:w-64'}`}>
       <div className={`p-6 flex items-center justify-between border-b ${baseClasses.border}`}>
         <div className={`flex items-center ${currentTheme.text} font-bold text-xl overflow-hidden whitespace-nowrap`}>
@@ -46,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {['dashboard', 'financials', 'finance', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['settings'] : [])].map(tab => (
           <button 
             key={tab} 
-            onClick={() => setActiveTab(tab)} 
+            onClick={() => selectTab(tab)}
             className={`flex items-center w-full p-3 mb-2 rounded-lg transition-colors ${activeTab === tab ? `${currentTheme.primary} text-white` : baseClasses.textSub + ' hover:' + baseClasses.hover}`}
           >
             {tab === 'dashboard' && <Home size={20} className="mr-3" />}
@@ -72,18 +94,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
         <button
-          onClick={onPasswordClick}
+          onClick={() => { onPasswordClick(); closeOnMobile(); }}
           className={`flex items-center w-full p-2 mt-2 rounded text-sm font-medium transition-colors ${baseClasses.textSub} ${baseClasses.hover}`}
         >
           <KeyRound size={18} className="mr-3" /> {t('change_password')}
         </button>
         <button
-          onClick={onLogoutClick}
+          onClick={() => { onLogoutClick(); closeOnMobile(); }}
           className="flex items-center w-full p-2 mt-2 text-red-500 hover:bg-red-500/10 rounded text-sm font-medium transition-colors"
         >
           <LogOut size={18} className="mr-3" /> {t('logout')}
         </button>
       </div>
     </aside>
+    </>
   );
 };
