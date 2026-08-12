@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
       
       <nav className="p-4 mt-4">
-        {['dashboard', 'financials', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['finance', 'settings'] : [])].map(tab => (
+        {['dashboard', 'financials', 'finance', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['settings'] : [])].map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 

@@ -6,12 +6,19 @@ import { sumTransactions, filterByDateRange } from '../../utils/transactions';
 import { LOCALES, todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { ErrorModal } from '../modals/ErrorModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { canManageOthers } from '../../utils/permissions';
 
 const money = (n: number) => `${n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
   transactions, refetchTransactions, baseClasses, currentTheme, t, darkMode, lang
 }) => {
+  const { userProfile } = useAuth();
+  // Sakinler kasayı görebiliyor ama değiştiremiyor: ekleme formu ve silme
+  // düğmeleri yalnızca yönetici/yardımcısına açık. Asıl koruma RLS'te,
+  // buradaki gizleme sadece arayüzü sadeleştiriyor.
+  const canEdit = canManageOthers(userProfile);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -87,7 +94,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <span className={`text-sm font-bold ${color}`}>{money(Number(item.amount))}</span>
             {/* Otomatik aidat kayıtları elle silinmiyor: karşılığı ledgers'ta
                 duruyor, buradan silmek kasayı tahsilat kaydıyla çelişkiye sokar */}
-            {item.source === 'manual' && (
+            {canEdit && item.source === 'manual' && (
               <button onClick={() => setConfirmDelete(item)} aria-label={t('delete')} className="text-slate-400 hover:text-red-500">
                 <Trash2 size={15} />
               </button>
@@ -113,25 +120,26 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       </div>
 
       {/* Özet */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className={`p-4 sm:p-5 rounded-xl border ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('total_income')}</p>
-          <p className="text-2xl font-bold text-green-600">{money(totals.income)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-600 break-words">{money(totals.income)}</p>
         </div>
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-5 rounded-xl border ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('total_expense')}</p>
-          <p className="text-2xl font-bold text-red-500">{money(totals.expense)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-500 break-words">{money(totals.expense)}</p>
         </div>
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-5 rounded-xl border col-span-2 lg:col-span-1 ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('balance')}</p>
-          <p className={`text-2xl font-bold ${totals.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+          <p className={`text-xl sm:text-2xl font-bold break-words ${totals.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
             {money(totals.balance)}
           </p>
         </div>
       </div>
 
-      {/* Yeni kayıt */}
-      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+      {/* Yeni kayıt - yalnızca yönetici ve yardımcısı */}
+      {canEdit && (
+      <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
         <h3 className={`font-bold mb-4 flex items-center ${baseClasses.textMain}`}>
           <Plus size={18} className="mr-2" /> {t('add_transaction')}
         </h3>
@@ -179,10 +187,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           </div>
         </form>
       </div>
+      )}
 
       {/* Listeler */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
           <div className="flex justify-between items-center mb-4">
             <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
               <TrendingUp size={18} className="mr-2 text-green-600" /> {t('income')}
@@ -192,7 +201,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           {list(incomes, 'text-green-600')}
         </div>
 
-        <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
           <div className="flex justify-between items-center mb-4">
             <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
               <TrendingDown size={18} className="mr-2 text-red-500" /> {t('expense')}

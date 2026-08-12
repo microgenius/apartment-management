@@ -116,7 +116,7 @@ export default function App() {
         />
 
         <div className={`flex-1 overflow-auto relative ${baseClasses.bgMain}`}>
-          <div className="max-w-6xl mx-auto py-6">
+          <div className="max-w-6xl mx-auto py-4 sm:py-6 px-1 sm:px-0">
             {activeTab === 'dashboard' && (
               <DashboardView 
                 userRole={userRole || 'resident'} 
@@ -178,7 +178,7 @@ export default function App() {
               />
             )}
             
-            {activeTab === 'finance' && canManageOthers(userProfile) && (
+            {activeTab === 'finance' && (
               <FinanceView
                 transactions={transactions}
                 refetchTransactions={refetchTransactions}

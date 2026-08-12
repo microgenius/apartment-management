@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { userProfile } = useAuth();
   return (
-    <header className={`h-16 flex items-center justify-between px-6 z-10 ${baseClasses.header}`}>
+    <header className={`h-16 flex items-center justify-between px-3 sm:px-6 z-10 shrink-0 ${baseClasses.header}`}>
       <div className="flex items-center">
         <button 
           onClick={() => setIsSidebarOpen(true)} 
@@ -33,14 +33,14 @@ export const Header: React.FC<HeaderProps> = ({
         </h1>
       </div>
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Language Selector - 3 dil olduğu için aç/kapa yerine liste */}
         <div className={`flex items-center rounded-md ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
           <Globe size={16} className={`ml-2 ${baseClasses.textSub}`} />
           <select
             value={lang}
             onChange={(e) => setLang(e.target.value as Language)}
-            aria-label={t('identifier_label')}
+            aria-label={t('language')}
             className={`bg-transparent px-1.5 py-1.5 text-sm font-bold outline-none cursor-pointer ${baseClasses.textMain}`}
           >
             {LANGUAGES.map(({ code, label }) => (

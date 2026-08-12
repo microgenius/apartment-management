@@ -69,16 +69,20 @@ export const transactionsService = {
    * Kasa defteri ledgers'tan ayrı: ledgers dairenin borcunu kapatır,
    * burası siteye para girdiğini yazar. Tahsilat ikisine birden yazılmalı.
    *
+   * Açıklamada daire numarası YOK: kasa defteri artık tüm sakinlere açık,
+   * kim hangi daireden ne ödedi bilgisini herkese yaymamak için. Daire
+   * bilgisi gerektiğinde resident_id sütunundan izlenebiliyor.
+   *
    * Hata fırlatmıyor: tahsilatın kendisi zaten tamamlanmış oluyor, kasa
    * kaydı yazılamadı diye ödemeyi başarısız göstermek yanlış olurdu.
    * Yazılamazsa konsola düşer ve elle eklenebilir.
    */
-  async recordDuesIncome(residentId: number, residentLabel: string, amount: number): Promise<void> {
+  async recordDuesIncome(residentId: number, payerName: string, amount: number): Promise<void> {
     try {
       await this.create({
         type: 'income',
         amount,
-        description: `Aidat tahsilatı - ${residentLabel}`,
+        description: `Aidat tahsilatı - ${payerName}`,
         source: 'dues',
         resident_id: residentId
       });

@@ -491,10 +491,17 @@ Expenses have no counterpart in `ledgers` at all.
   ("2600 TL noter gideri"). Deletable.
 
 ### Access
-RLS restricts every operation to `is_admin() OR has_duty()`. Residents cannot
-read the table at all and never see the menu. **Run `enable_rls.sql` first** —
-this script's policies call `is_admin()` and `has_duty()`, which are defined
-there.
+Reads are open to every signed-in user — residents should be able to follow
+where the building's money goes. Writes (insert/update/delete) are restricted
+to `is_admin() OR has_duty()`. The UI hides the add form and delete buttons
+from residents, but that is only cosmetic; RLS is what actually enforces it.
+
+Because the ledger is visible to everyone, automatic dues records deliberately
+do **not** put the flat number in the description. The flat is still traceable
+through the `resident_id` column for whoever needs it.
+
+**Run `enable_rls.sql` first** — this script's policies call `is_admin()` and
+`has_duty()`, which are defined there.
 
 ### Rollback
 ```sql
