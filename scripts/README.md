@@ -491,14 +491,21 @@ Expenses have no counterpart in `ledgers` at all.
   ("2600 TL noter gideri"). Deletable.
 
 ### Access
-Reads are open to every signed-in user — residents should be able to follow
-where the building's money goes. Writes (insert/update/delete) are restricted
-to `is_admin() OR has_duty()`. The UI hides the add form and delete buttons
-from residents, but that is only cosmetic; RLS is what actually enforces it.
+Reads are deliberately two-tier. Residents should be able to follow where the
+building's money goes, but **not** who paid how much — that is personal.
 
-Because the ledger is visible to everyone, automatic dues records deliberately
-do **not** put the flat number in the description. The flat is still traceable
-through the `resident_id` column for whoever needs it.
+- Expenses and manually entered income: readable by everyone, line by line
+- Dues collections (`source = 'dues'`): rows readable only by
+  `is_admin() OR has_duty()`. Residents get the **total** instead, via the
+  `dues_income_total()` SECURITY DEFINER function, and the UI renders it as a
+  single summary line so the balance still adds up.
+
+Writes are restricted to `is_admin() OR has_duty()`. Hiding things in the UI
+would not have been enough on its own — anyone holding the anon key could
+query the table directly and read the names.
+
+Automatic dues records also omit the flat number from the description; the
+flat stays traceable through `resident_id` for those who may read the rows.
 
 **Run `enable_rls.sql` first** — this script's policies call `is_admin()` and
 `has_duty()`, which are defined there.

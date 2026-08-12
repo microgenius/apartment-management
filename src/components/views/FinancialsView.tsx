@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Wallet, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import type { FinancialsViewProps, LedgerItem } from '../../types';
-import { ledgersService } from '../../services/ledgersService';
-import { transactionsService } from '../../services/transactionsService';
+import { ledgersService, type LedgerOperation } from '../../services/ledgersService';
 import { useAuth } from '../../contexts/AuthContext';
 import { receiptRequestsService } from '../../services/receiptRequestsService';
 import { useReceiptRequests } from '../../hooks/useReceiptRequests';
@@ -92,64 +91,54 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     }
 
     try {
+      // Dağıtımı burada hesaplıyoruz ama YAZMA işini tek seferde sunucuya
+      // veriyoruz: eskiden her kalem ayrı ayrı yazılıyor, kasa kaydı en sonda
+      // ekleniyordu. Arada kopan bir şey (oturum düşmesi, ağ hatası) borcu
+      // kapatılmış ama kasaya girmemiş bir ödeme bırakıyordu; tekrar
+      // denendiğinde de ledger'da mükerrer kayıt oluşuyordu.
+      const ops: LedgerOperation[] = [];
       let remainingPayment = paymentAmount;
-      // Use debtorLedger which includes both existing and planned debts
       const unpaidItems = debtorLedger.filter((item) => item.status !== 'paid');
-      
+
       for (const item of unpaidItems) {
-        console.log('Processing item:', item);
         if (remainingPayment <= 0) break;
-        
+
         const recordExists = item.id && !item.id.startsWith('plan-');
-        const itemDebt = item.status === 'partial_paid' 
+        const itemDebt = item.status === 'partial_paid'
           ? item.amount - (item.paid_amount || 0)
           : item.amount;
-        
+
         if (remainingPayment >= itemDebt) {
-          // Full payment for this item
+          // Kalem tamamen kapanıyor
           if (recordExists) {
-            // Existing record - update it
-            await ledgersService.updateStatus(item.id, 'paid');
+            ops.push({ op: 'update', id: item.id, status: 'paid', paid_amount: item.amount });
           } else {
-            // Planned debt - insert as paid
-            await ledgersService.create(selectedDebtor.id, {
-              date: item.date,
-              desc: item.desc,
-              amount: item.amount,
-              status: 'paid'
+            ops.push({
+              op: 'insert', date: item.date, description: item.desc,
+              amount: item.amount, status: 'paid', paid_amount: item.amount
             });
           }
           remainingPayment -= itemDebt;
         } else {
-          // Partial payment for this item
+          // Kısmi ödeme, kalan para bitiyor
           const paidAmount = (item.paid_amount || 0) + remainingPayment;
-          
           if (recordExists) {
-            // Existing record - update to partial_paid
-            await ledgersService.update(item.id, { 
-              status: 'partial_paid',
-              paid_amount: paidAmount
-            });
+            ops.push({ op: 'update', id: item.id, status: 'partial_paid', paid_amount: paidAmount });
           } else {
-            // Planned debt - insert as partial_paid
-            await ledgersService.create(selectedDebtor.id, {
-              date: item.date,
-              desc: item.desc,
-              amount: item.amount,
-              status: 'partial_paid',
-              paid_amount: paidAmount
+            ops.push({
+              op: 'insert', date: item.date, description: item.desc,
+              amount: item.amount, status: 'partial_paid', paid_amount: paidAmount
             });
           }
           remainingPayment = 0;
         }
       }
 
-      // Tahsilat kasaya da yazılıyor: ledgers dairenin borcunu kapatır,
-      // transactions siteye para girdiğini kaydeder. İkisi ayrı defter.
-      await transactionsService.recordDuesIncome(
+      await ledgersService.recordPayment(
         selectedDebtor.id,
+        paymentAmount,
         selectedDebtor.name,
-        paymentAmount
+        ops
       );
 
       const updatedResident = await ledgersService.getByResidentId(selectedDebtor.id);

@@ -12,7 +12,7 @@ import { canManageOthers } from '../../utils/permissions';
 const money = (n: number) => `${n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
-  transactions, refetchTransactions, baseClasses, currentTheme, t, darkMode, lang
+  transactions, duesTotal, refetchTransactions, baseClasses, currentTheme, t, darkMode, lang
 }) => {
   const { userProfile } = useAuth();
   // Sakinler kasayı görebiliyor ama değiştiremiyor: ekleme formu ve silme
@@ -32,15 +32,37 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  const totals = useMemo(() => sumTransactions(transactions), [transactions]);
+  // Sakinler aidat tahsilatlarını kalem kalem göremiyor (kimin ne ödediği
+  // kişisel bilgi); RLS o satırları zaten getirmiyor. Toplamı tek bir
+  // özet satırı olarak ekliyoruz ki kasa bakiyesi doğru çıksın.
+  const visibleTransactions = useMemo<Transaction[]>(() => {
+    if (canEdit || duesTotal <= 0) return transactions;
+    return [
+      ...transactions,
+      {
+        id: -1,
+        type: 'income',
+        amount: duesTotal,
+        description: t('dues_income_summary'),
+        date: todayISO(),
+        source: 'dues',
+        resident_id: null,
+        created_by: null,
+        created_at: '',
+        updated_at: ''
+      }
+    ];
+  }, [transactions, duesTotal, canEdit, t]);
+
+  const totals = useMemo(() => sumTransactions(visibleTransactions), [visibleTransactions]);
   const reportItems = useMemo(
-    () => filterByDateRange(transactions, from, to),
-    [transactions, from, to]
+    () => filterByDateRange(visibleTransactions, from, to),
+    [visibleTransactions, from, to]
   );
   const reportTotals = useMemo(() => sumTransactions(reportItems), [reportItems]);
 
-  const incomes = transactions.filter((x) => x.type === 'income');
-  const expenses = transactions.filter((x) => x.type === 'expense');
+  const incomes = visibleTransactions.filter((x) => x.type === 'income');
+  const expenses = visibleTransactions.filter((x) => x.type === 'expense');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,8 +108,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <div className="min-w-0">
             <p className={`text-sm font-medium ${baseClasses.textMain}`}>{item.description}</p>
             <p className={`text-xs ${baseClasses.textSub}`}>
-              {new Date(item.date).toLocaleDateString(LOCALES[lang])}
-              {item.source === 'dues' && ` · ${t('auto_record')}`}
+              {item.id === -1
+                ? t('all_time')
+                : `${new Date(item.date).toLocaleDateString(LOCALES[lang])}${item.source === 'dues' ? ` · ${t('auto_record')}` : ''}`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
