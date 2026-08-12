@@ -468,3 +468,35 @@ the anon key can call the service directly, so run `enable_rls.sql`.
 ```sql
 DROP TABLE IF EXISTS resident_contacts;
 ```
+
+---
+
+## 12. Income / Expense Ledger (`add_transactions.sql`)
+
+### Purpose
+Adds the `transactions` table behind the **Gelir / Gider** menu, visible only
+to the manager and assistant manager.
+
+### Why a separate table from `ledgers`
+`ledgers` tracks what each **flat owes**. `transactions` tracks the
+**building's cash** — money in and out. A collected payment is written to
+both: it closes the flat's debt in `ledgers` and appears as income here.
+Expenses have no counterpart in `ledgers` at all.
+
+### Records
+- `source = 'dues'` — created automatically when a payment is collected in
+  Financials. Not deletable from the UI: its counterpart lives in `ledgers`,
+  and removing one side would put the two ledgers in conflict.
+- `source = 'manual'` — entered by hand, free-text description
+  ("2600 TL noter gideri"). Deletable.
+
+### Access
+RLS restricts every operation to `is_admin() OR has_duty()`. Residents cannot
+read the table at all and never see the menu. **Run `enable_rls.sql` first** —
+this script's policies call `is_admin()` and `has_duty()`, which are defined
+there.
+
+### Rollback
+```sql
+DROP TABLE IF EXISTS transactions;
+```

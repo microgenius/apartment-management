@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Wallet, CheckCircle, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import type { FinancialsViewProps, LedgerItem } from '../../types';
 import { ledgersService } from '../../services/ledgersService';
+import { transactionsService } from '../../services/transactionsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { receiptRequestsService } from '../../services/receiptRequestsService';
 import { useReceiptRequests } from '../../hooks/useReceiptRequests';
@@ -130,6 +131,14 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           remainingPayment = 0;
         }
       }
+
+      // Tahsilat kasaya da yazılıyor: ledgers dairenin borcunu kapatır,
+      // transactions siteye para girdiğini kaydeder. İkisi ayrı defter.
+      await transactionsService.recordDuesIncome(
+        selectedDebtor.id,
+        `${selectedDebtor.name} (${t('flat')} ${selectedDebtor.door})`,
+        paymentAmount
+      );
 
       const updatedResident = await ledgersService.getByResidentId(selectedDebtor.id);
       const updatedResidents = residents.map((r) => 

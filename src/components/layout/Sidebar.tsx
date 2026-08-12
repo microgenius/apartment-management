@@ -7,6 +7,7 @@ import {
   User,
   LogOut,
   KeyRound,
+  PiggyBank,
   X,
   Building,
   Settings,
@@ -42,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
       
       <nav className="p-4 mt-4">
-        {['dashboard', 'financials', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['settings'] : [])].map(tab => (
+        {['dashboard', 'financials', 'community', 'requests', 'info', ...(canManageOthers(userProfile) ? ['finance', 'settings'] : [])].map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {tab === 'community' && <Users size={20} className="mr-3" />}
             {tab === 'requests' && <MessageSquare size={20} className="mr-3" />}
             {tab === 'info' && <Info size={20} className="mr-3" />}
+            {tab === 'finance' && <PiggyBank size={20} className="mr-3" />}
             {tab === 'settings' && <Settings size={20} className="mr-3" />}
             <span className="font-medium">{t(tab)}</span>
           </button>
