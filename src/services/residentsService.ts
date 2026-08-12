@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Resident, LedgerItem } from '../types';
+import type { Resident, LedgerItem, ResidentDuty } from '../types';
 
 export const residentsService = {
   // Get all residents with their ledgers
@@ -25,6 +25,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
+      duty: resident.duty,
+      duty_since: resident.duty_since,
       ledger: (ledgers || [])
         .filter(l => l.resident_id === resident.id)
         .map(l => ({
@@ -64,6 +66,8 @@ export const residentsService = {
       type: resident.type,
       phone: resident.phone,
       status: resident.status,
+      duty: resident.duty,
+      duty_since: resident.duty_since,
       ledger: (ledgers || []).map(l => ({
         id: l.id,
         date: l.date,
@@ -76,7 +80,7 @@ export const residentsService = {
   },
 
   // Create new resident
-  async create(resident: Omit<Resident, 'id' | 'ledger'>): Promise<Resident> {
+  async create(resident: Omit<Resident, 'id' | 'ledger' | 'duty' | 'duty_since'>): Promise<Resident> {
     const { data, error } = await supabase
       .from('residents')
       .insert({
@@ -98,11 +102,42 @@ export const residentsService = {
   },
 
   // Update resident
-  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger'>>): Promise<void> {
+  async update(id: number, updates: Partial<Omit<Resident, 'id' | 'ledger' | 'duty' | 'duty_since'>>): Promise<void> {
     const { error } = await supabase
       .from('residents')
       .update(updates)
       .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // Görevi ata. Aynı görevi taşıyan başka daire varsa önce bırakır -
+  // veritabanındaki kısmi unique index zaten ikinciyi reddederdi.
+  // duty_since bugüne set ediliyor: muafiyet bu aydan itibaren işler,
+  // görevden önceki aylar borç üretmeye devam eder.
+  async setDuty(residentId: number, duty: ResidentDuty): Promise<void> {
+    const { error: clearError } = await supabase
+      .from('residents')
+      .update({ duty: null, duty_since: null })
+      .eq('duty', duty);
+
+    if (clearError) throw clearError;
+
+    const { error } = await supabase
+      .from('residents')
+      .update({ duty, duty_since: new Date().toISOString().split('T')[0] })
+      .eq('id', residentId);
+
+    if (error) throw error;
+  },
+
+  // Görevi kaldırır - daire tekrar aidata tabi olur (geçmiş muaf aylar
+  // geri gelmez, çünkü o aylar için hiç kayıt üretilmemişti)
+  async clearDuty(residentId: number): Promise<void> {
+    const { error } = await supabase
+      .from('residents')
+      .update({ duty: null, duty_since: null })
+      .eq('id', residentId);
 
     if (error) throw error;
   },

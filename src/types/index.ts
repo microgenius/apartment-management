@@ -20,6 +20,9 @@ export interface LedgerItem {
   paid_amount?: number; // For partial payments - tracks how much has been paid
 }
 
+/** Site görevi. Görevi olan daireden aidat alınmaz. */
+export type ResidentDuty = 'manager' | 'assistant';
+
 export interface Resident {
   id: number;
   door: string;
@@ -27,6 +30,10 @@ export interface Resident {
   type: 'Kiracı' | 'Ev Sahibi';
   phone: string;
   status: 'Dolu' | 'Boş';
+  duty: ResidentDuty | null;
+  /** Göreve başlama tarihi. Muafiyet bu aydan itibaren işler; öncesindeki
+   *  borçlar olduğu gibi kalır. */
+  duty_since: string | null;
   ledger: LedgerItem[];
 }
 

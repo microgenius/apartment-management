@@ -32,13 +32,13 @@ export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
  * @returns Tüm ledger kayıtları (mevcut + planlı)
  */
 export const getResidentLedgerWithPlanning = (
-  resident: Resident, 
-  meetingDate: string, 
+  resident: Resident,
+  meetingDate: string,
   lang: Language,
   monthlyDue: number = 1500,
   debtStartDate: string = '2024-01-01'
 ): LedgerItem[] => {
-  let fullLedger = [...resident.ledger];
+  const fullLedger = [...resident.ledger];
   const startDate = new Date(debtStartDate);
   const startMonth = startDate.getMonth();
   const startYear = startDate.getFullYear();
@@ -46,20 +46,32 @@ export const getResidentLedgerWithPlanning = (
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
-  
+
+  // Yönetici / yardımcısı aidattan muaf - ama yalnızca göreve başladığı aydan
+  // itibaren. Görevden önceki aylar normal şekilde borç üretmeye devam eder,
+  // aksi halde birini yönetici seçmek geçmiş borcunu da silerdi.
+  const exemptFrom = resident.duty && resident.duty_since
+    ? new Date(resident.duty_since)
+    : null;
+
   // Start planning from the first day of the debt start date month
   // Add 12 hours to prevent timezone issues with date comparison
-  let loopDate = new Date(startYear, startMonth, 1, 12, 0, 0, 0);
-  
+  const loopDate = new Date(startYear, startMonth, 1, 12, 0, 0, 0);
+
   while(loopDate <= meeting) {
     // Use first day of month as the due date
     const dateStr = loopDate.toISOString().split('T')[0];
     const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
-    
+
     // Check if there's already a record for this month
     const existingRecord = fullLedger.find((l) => l.date.startsWith(yearMonth));
-    
-    if (!existingRecord) {
+
+    const isExemptMonth = exemptFrom !== null && (
+      loopDate.getFullYear() > exemptFrom.getFullYear() ||
+      (loopDate.getFullYear() === exemptFrom.getFullYear() && loopDate.getMonth() >= exemptFrom.getMonth())
+    );
+
+    if (!existingRecord && !isExemptMonth) {
       // No record exists, create a planned one
       // Name it after the month it falls in (e.g., 2025-12-01 = December dues)
       const monthName = loopDate.toLocaleString(LOCALES[lang] ?? LOCALES.en, { month: 'long', year: 'numeric' });

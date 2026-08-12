@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign } from 'lucide-react';
-import type { SettingsViewProps } from '../../types';
+import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck } from 'lucide-react';
+import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
-import { DIAL_CODES } from '../../utils/helpers';
+import { residentsService } from '../../services/residentsService';
+import { DIAL_CODES, LOCALES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
@@ -78,6 +79,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const transferCandidates = allUsers.filter(u => u.role === 'resident');
+
+  // Görev atama (yönetici / yardımcısı). Görevi olan daireden aidat alınmaz.
+  const [savingDuty, setSavingDuty] = useState<ResidentDuty | null>(null);
+
+  const handleDutyChange = async (duty: ResidentDuty, residentId: string) => {
+    setSavingDuty(duty);
+    try {
+      const current = residents.find(r => r.duty === duty);
+      if (current && String(current.id) !== residentId) {
+        await residentsService.clearDuty(current.id);
+      }
+      if (residentId) {
+        await residentsService.setDuty(Number(residentId), duty);
+      }
+      refetchResidents();
+      setSuccessModal({ isOpen: true, title: t('success'), message: t('duty_updated') });
+    } catch (error) {
+      console.error('Error updating duty:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('duty_update_failed') });
+    } finally {
+      setSavingDuty(null);
+    }
+  };
 
   const handleSaveDate = async () => {
     setIsSaving(true);
@@ -443,6 +467,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {isCreating ? t('creating') : t('create_user_btn')}
           </button>
         </form>
+      </div>
+
+      {/* Site Görevleri - görevi olan daireden aidat alınmaz */}
+      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
+          <ShieldCheck className="mr-2" size={20} />
+          {t('duties_title')}
+        </h3>
+        <p className={`text-sm mb-4 ${baseClasses.textSub}`}>{t('duties_desc')}</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(['manager', 'assistant'] as ResidentDuty[]).map((duty) => {
+            const holder = residents.find((r) => r.duty === duty);
+            return (
+              <div key={duty}>
+                <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+                  {t(duty === 'manager' ? 'manager_title' : 'assistant_title')}
+                </label>
+                <select
+                  value={holder ? String(holder.id) : ''}
+                  disabled={savingDuty !== null}
+                  onChange={(e) => handleDutyChange(duty, e.target.value)}
+                  className={`w-full p-3 rounded-lg border outline-none disabled:opacity-50 ${baseClasses.input}`}
+                >
+                  <option value="">{t('duty_none')}</option>
+                  {residents.map((r) => (
+                    <option key={r.id} value={r.id}>{r.door} - {r.name}</option>
+                  ))}
+                </select>
+                {holder?.duty_since && (
+                  <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
+                    {t('duty_exempt_since')}: {new Date(holder.duty_since).toLocaleDateString(LOCALES[lang])}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Transfer Admin Rights */}

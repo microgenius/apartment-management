@@ -363,3 +363,43 @@ Only possible while STEP 4 has not been run:
 ```sql
 UPDATE user_profiles SET resident_id = NULL;
 ```
+
+---
+
+## 9. Building Duties & Dues Exemption (`add_resident_duties.sql`)
+
+### Purpose
+Lets an admin appoint a **manager** and an **assistant manager** from
+Settings, and exempts those two flats from monthly dues.
+
+### Why the duty lives on `residents`, not `user_profiles`
+Dues are charged to the flat, so the exemption has to apply to the flat's
+ledger. The person holding the duty may not even have a login account.
+
+### Why `duty_since` exists
+Dues are not stored rows - `getResidentLedgerWithPlanning` synthesizes them
+for every month from `debt_start_date` onwards. Without a start date, making
+someone manager would retroactively erase the dues they owed *before* taking
+the role. The exemption therefore applies only from the month of `duty_since`
+(set to the assignment date automatically); earlier months keep generating
+debt as normal, and any real `ledgers` rows are never touched.
+
+### Constraints
+A partial unique index (`WHERE duty IS NOT NULL`) allows at most one manager
+and one assistant at a time. Assigning a duty to a second flat clears it from
+the first.
+
+### How to Run
+Supabase Dashboard > **SQL Editor** > New Query > paste > **Run**.
+Idempotent. STEP 2 lists whoever currently holds a duty.
+
+### After Running
+**Settings > Site Görevleri** shows two dropdowns listing every flat. The
+exemption date is displayed under the selected flat. Clearing a duty puts the
+flat back on dues from that point on - months that were exempt stay exempt,
+because no rows were ever generated for them.
+
+### Rollback (if needed)
+```sql
+UPDATE residents SET duty = NULL, duty_since = NULL;
+```

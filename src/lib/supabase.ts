@@ -19,6 +19,8 @@ export type Database = {
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
           status: 'Dolu' | 'Boş';
+          duty: 'manager' | 'assistant' | null;
+          duty_since: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +31,8 @@ export type Database = {
           type: 'Kiracı' | 'Ev Sahibi';
           phone: string;
           status: 'Dolu' | 'Boş';
+          duty?: 'manager' | 'assistant' | null;
+          duty_since?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -39,6 +43,8 @@ export type Database = {
           type?: 'Kiracı' | 'Ev Sahibi';
           phone?: string;
           status?: 'Dolu' | 'Boş';
+          duty?: 'manager' | 'assistant' | null;
+          duty_since?: string | null;
           created_at?: string;
           updated_at?: string;
         };
