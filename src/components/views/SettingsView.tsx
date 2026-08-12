@@ -182,50 +182,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     setIsCreating(true);
     try {
-      const { error, userId } = await createUser(
+      const residentId = Number(newUserResidentId);
+      const flat = residents.find((r) => r.id === residentId);
+      const existingContacts = await residentContactsService.getByResident(residentId);
+
+      const { error } = await createUser(
         newUserEmail,
         newUserPassword,
         newUserName,
         newUserRole,
         newUserApartment || undefined,
         newUserPhone || undefined,
-        newUserDialCode
+        newUserDialCode,
+        {
+          residentId,
+          // Tür daire kaydından çıkarılıyor; yanlışsa daire penceresinden düzeltilebilir
+          contactType: flat?.type === 'Kiracı' ? 'tenant' : 'owner',
+          contactPhone: newUserPhone.trim(),
+          // Dairenin ilk kişisiyse birincil olsun
+          isPrimary: existingContacts.length === 0
+        }
       );
 
       if (error) {
-        const message =
-          error.message === 'NO_IDENTIFIER' ? t('create_user_no_identifier')
-          : error.message === 'INVALID_PHONE' ? t('login_error_phone')
-          : 'Kullanıcı oluşturulurken hata: ' + error.message;
-        setErrorModal({ isOpen: true, title: 'Hata', message });
+        const messages: Record<string, string> = {
+          NO_IDENTIFIER: t('create_user_no_identifier'),
+          INVALID_PHONE: t('login_error_phone'),
+          NOT_DEPLOYED: t('create_user_not_deployed'),
+          forbidden: t('password_reset_forbidden'),
+          unauthorized: t('password_reset_unauthorized'),
+          service_role_not_configured: t('password_reset_no_secret')
+        };
+        setErrorModal({
+          isOpen: true,
+          title: t('error_occurred'),
+          message: messages[error.message] ?? `${t('create_user_failed')} (${error.message})`
+        });
       } else {
-        if (userId) {
-          const residentId = Number(newUserResidentId);
-          await userProfilesService.linkResident(userId, residentId);
-
-          // Yeni kullanıcı dairenin iletişim listesine de ekleniyor.
-          // Tür daire kaydından çıkarılıyor (Kiracı/Ev Sahibi); yanlışsa
-          // daire penceresinden düzeltilebiliyor.
-          const flat = residents.find((r) => r.id === residentId);
-          try {
-            const existing = await residentContactsService.getByResident(residentId);
-            await residentContactsService.create(residentId, {
-              type: flat?.type === 'Kiracı' ? 'tenant' : 'owner',
-              name: newUserName,
-              phone: newUserPhone.trim(),
-              email: newUserEmail.trim() || null,
-              // Dairenin ilk kişisiyse birincil olsun; sonrakiler ikincil
-              is_primary: existing.length === 0
-            });
-          } catch (contactError) {
-            // İletişim kaydı yazılamazsa kullanıcı yine de oluşmuş oluyor;
-            // hesabı geri almak yerine uyarıyoruz.
-            console.error('İletişim kişisi eklenemedi:', contactError);
-          }
-
-          refetchResidents();
-          refetchContacts();
-        }
+        refetchResidents();
+        refetchContacts();
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
         setNewUserEmail('');
         setNewUserPhone('');

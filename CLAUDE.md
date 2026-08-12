@@ -69,16 +69,24 @@ Copy `.env.example` to `.env`. Full Supabase project setup (schema, first admin 
 
 ## Edge Functions
 
-`supabase/functions/admin-reset-password` is the project's only server-side
-component. It exists because resetting *another* user's password requires the
-Supabase admin API, which needs the `service_role` key — a key that must never
-reach the browser. The function re-derives the caller's identity from the JWT
-and re-checks authority (`role = 'admin'` or `duty` set) server-side; it never
-trusts anything in the request body.
+Two functions, both under `supabase/functions/`, both requiring the
+`service_role` key — a key that must never reach the browser. Each re-derives
+the caller's identity from the JWT and re-checks authority (`role = 'admin'` or
+a `duty`) server-side; neither trusts anything in the request body.
 
-Deploy with `supabase functions deploy admin-reset-password` and set the secret
-`SERVICE_ROLE_KEY`. Without it, the Settings reset form fails with a message
-saying the function isn't deployed — the rest of the app is unaffected.
+- **`admin-reset-password`** — resetting *another* user's password needs the
+  Supabase admin API.
+- **`admin-create-user`** — creating a user must not run in the browser:
+  `supabase.auth.signUp()` **switches the browser session to the newly created
+  user**, so every follow-up write (`user_profiles`, `resident_contacts`) then
+  runs as that new resident and is rejected by RLS, leaving an auth record with
+  no profile — and logging the admin out. `auth.admin.createUser` does neither.
+  The function creates the account, the profile and the flat contact together,
+  and deletes the auth user again if the profile insert fails.
+
+Deploy with `supabase functions deploy <name>` and set the shared secret
+`SERVICE_ROLE_KEY`. Without them the two Settings forms fail with a message
+saying the function isn't deployed; the rest of the app is unaffected.
 
 Users change their *own* password from the sidebar (`ChangePasswordModal`),
 which needs no backend: `supabase.auth.updateUser({ password })` only ever acts
