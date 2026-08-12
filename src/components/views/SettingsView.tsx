@@ -9,6 +9,7 @@ import { COUNTRIES } from '../../constants/countries';
 import { isAdmin } from '../../utils/permissions';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
+import { PasswordInput } from '../PasswordInput';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   baseClasses,
@@ -460,14 +461,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
                 {t('password')} {t('required_field')}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
+                onChange={setNewUserPassword}
                 className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
                 placeholder={t('min_password')}
                 minLength={6}
                 required
+                autoComplete="new-password"
+                t={t}
+                toggleClassName={baseClasses.textSub}
               />
             </div>
             <div>
@@ -626,14 +629,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               );
             })}
           </select>
-          <input
-            type="text"
+          <PasswordInput
             value={resetPassword}
-            onChange={(e) => setResetPassword(e.target.value)}
+            onChange={setResetPassword}
             placeholder={t('new_password')}
             minLength={6}
             required
+            autoComplete="new-password"
+            t={t}
             className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            toggleClassName={baseClasses.textSub}
           />
           <button
             type="submit"

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyRound, Loader2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { BaseClasses, Theme } from '../../types';
+import { PasswordInput } from '../PasswordInput';
 
 interface Props {
   isOpen: boolean;
@@ -78,25 +79,27 @@ export const ChangePasswordModal: React.FC<Props> = ({ isOpen, onClose, baseClas
           </>
         ) : (
           <form onSubmit={submit} className="space-y-3">
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={setPassword}
               placeholder={t('new_password')}
               minLength={6}
               required
+              t={t}
               className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              toggleClassName={baseClasses.textSub}
             />
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={setConfirm}
               placeholder={t('new_password_again')}
               minLength={6}
               required
+              t={t}
               className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              toggleClassName={baseClasses.textSub}
             />
 
             {error && <p className="text-sm text-red-500">{error}</p>}
