@@ -120,18 +120,18 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       </div>
 
       {/* Özet */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className={`p-4 sm:p-5 rounded-xl border ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('total_income')}</p>
-          <p className="text-2xl font-bold text-green-600">{money(totals.income)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-600 break-words">{money(totals.income)}</p>
         </div>
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-5 rounded-xl border ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('total_expense')}</p>
-          <p className="text-2xl font-bold text-red-500">{money(totals.expense)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-500 break-words">{money(totals.expense)}</p>
         </div>
-        <div className={`p-5 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-5 rounded-xl border col-span-2 lg:col-span-1 ${baseClasses.bgCard}`}>
           <p className={`text-sm ${baseClasses.textSub}`}>{t('balance')}</p>
-          <p className={`text-2xl font-bold ${totals.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+          <p className={`text-xl sm:text-2xl font-bold break-words ${totals.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
             {money(totals.balance)}
           </p>
         </div>
@@ -139,7 +139,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
       {/* Yeni kayıt - yalnızca yönetici ve yardımcısı */}
       {canEdit && (
-      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+      <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
         <h3 className={`font-bold mb-4 flex items-center ${baseClasses.textMain}`}>
           <Plus size={18} className="mr-2" /> {t('add_transaction')}
         </h3>
@@ -191,7 +191,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
       {/* Listeler */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
           <div className="flex justify-between items-center mb-4">
             <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
               <TrendingUp size={18} className="mr-2 text-green-600" /> {t('income')}
@@ -201,7 +201,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           {list(incomes, 'text-green-600')}
         </div>
 
-        <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <div className={`p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
           <div className="flex justify-between items-center mb-4">
             <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
               <TrendingDown size={18} className="mr-2 text-red-500" /> {t('expense')}

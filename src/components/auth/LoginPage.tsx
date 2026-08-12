@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Building2, User, Lock, AlertCircle, Loader2, Globe, Palette } from 'lucide-react';
+import { Building2, Mail, Phone, Lock, AlertCircle, Loader2, Globe, Palette } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cookies } from '../../utils/cookies';
 import { TRANSLATIONS, LANGUAGES, isLanguage } from '../../constants/translations';
 import { THEMES } from '../../constants/themes';
 import type { Language, ThemeName } from '../../types';
-import { createTranslator, DIAL_CODES, isEmail } from '../../utils/helpers';
+import { createTranslator, DIAL_CODES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
 
 export const LoginPage: React.FC = () => {
-  // Email ya da telefon numarası olabilir - ayrımı AuthContext yapıyor
+  // Kullanıcı giriş yöntemini kendi seçiyor. Önceden tek alan vardı ve
+  // yazdıkça email mi telefon mu olduğu tahmin ediliyordu; ülke kodu da
+  // buna göre belirip kaybolduğu için ne yazılacağı belirsiz kalıyordu.
+  const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,10 +36,11 @@ export const LoginPage: React.FC = () => {
   // Numarasını "+" veya "00" ile yazan kullanıcıda bu seçim zaten yok sayılır.
   const [dialCode, setDialCode] = useState<string>(DIAL_CODES[lang]);
 
-  // Girdinin telefon gibi göründüğü durumda ülke seçicisini göster.
-  // Email yazanları ya da kodu kendi yazanları gereksiz alanla meşgul etmiyoruz.
-  const showCountry =
-    identifier.trim() !== '' && !isEmail(identifier) && !identifier.trim().startsWith('+');
+  const switchMode = (next: 'email' | 'phone') => {
+    setMode(next);
+    setIdentifier('');
+    setError('');
+  };
 
   const handleLangChange = (newLang: Language) => {
     setLang(newLang);
@@ -139,7 +143,7 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} autoComplete="on" className="p-8">
+          <form onSubmit={handleSubmit} autoComplete="on" className="p-6 sm:p-8">
             {/* Error Message */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
@@ -148,43 +152,81 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {/* Email veya Telefon */}
-            <div className="mb-5">
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('identifier_label')}
-              </label>
-              <div className="flex gap-2">
-                {showCountry && (
+            {/* Giriş yöntemi seçimi */}
+            <div className="flex gap-2 mb-5 p-1 bg-gray-100 rounded-lg">
+              {(['email', 'phone'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => switchMode(m)}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    mode === m ? `${currentTheme.primary} text-white shadow-sm` : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  {m === 'email' ? <Mail size={16} /> : <Phone size={16} />}
+                  {t(m === 'email' ? 'email_label' : 'phone')}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'email' ? (
+              <div className="mb-5">
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('email_label')}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="email"
+                    id="identifier"
+                    name="email"
+                    autoComplete="email"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    placeholder={t('email_placeholder')}
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mb-5">
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('phone')}
+                </label>
+                {/* Ülke kodu telefon seçiliyken hep görünür: belirip kaybolan
+                    alan, kullanıcıyı numarayı nasıl yazacağı konusunda
+                    tahmine zorluyordu */}
+                <div className="flex gap-2">
                   <select
                     value={dialCode}
                     onChange={(e) => setDialCode(e.target.value)}
                     aria-label={t('country_code')}
-                    className="w-28 shrink-0 px-2 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="w-24 sm:w-28 shrink-0 min-w-0 px-2 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   >
                     {COUNTRIES.map(({ code, name, flag }) => (
                       <option key={code} value={code}>{flag} +{code} {name}</option>
                     ))}
                   </select>
-                )}
-                <div className="relative flex-1">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    id="identifier"
-                    name="identifier"
-                    autoComplete="username"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    placeholder={t('identifier_placeholder')}
-                    required
-                  />
+                  <div className="relative flex-1 min-w-0">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="tel"
+                      id="identifier"
+                      name="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      placeholder={t('placeholder_phone')}
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
-              {showCountry && (
                 <p className="text-xs text-gray-500 mt-1">{t('country_code_hint')}</p>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Password */}
             <div className="mb-6">
