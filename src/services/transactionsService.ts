@@ -38,6 +38,20 @@ export const transactionsService = {
     return data || [];
   },
 
+  /**
+   * Aidat gelirlerinin toplamı. Sakinler RLS gereği bu satırları tek tek
+   * göremiyor (kimin ne ödediği kişisel bilgi), yalnızca toplamı görüyor.
+   * Yönetici için de aynı sonucu verir, ayrı bir yol tutmaya gerek yok.
+   */
+  async getDuesTotal(): Promise<number> {
+    const { data, error } = await supabase.rpc('dues_income_total');
+    if (error) {
+      console.error('Error fetching dues total:', error);
+      return 0;
+    }
+    return Number(data ?? 0);
+  },
+
   async create(input: TransactionInput): Promise<Transaction> {
     const { data: auth } = await supabase.auth.getUser();
 

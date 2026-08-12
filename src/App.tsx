@@ -69,7 +69,7 @@ export default function App() {
   const { requests, setRequests } = useRequests();
   const { communityPosts, setCommunityPosts } = useCommunityPosts();
   const { contacts, refetch: refetchContacts } = useResidentContacts();
-  const { transactions, refetch: refetchTransactions } = useTransactions();
+  const { transactions, duesTotal, refetch: refetchTransactions } = useTransactions();
 
   const [selectedApartment, setSelectedApartment] = useState<Resident | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -188,6 +188,7 @@ export default function App() {
             {activeTab === 'finance' && (
               <FinanceView
                 transactions={transactions}
+                duesTotal={duesTotal}
                 refetchTransactions={refetchTransactions}
                 baseClasses={baseClasses}
                 currentTheme={currentTheme}

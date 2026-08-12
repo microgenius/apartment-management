@@ -39,12 +39,17 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- ==========================================
 -- RLS
 -- ==========================================
--- Kasa defterini HERKES görebilir (şeffaflık: sakinler sitenin parasının
--- nereye gittiğini takip edebilmeli), ama yalnızca yönetici ve yardımcısı
--- yazabilir. Okuma ile yazmanın ayrılması bilinçli.
+-- Sakinler sitenin parasının nereye gittiğini görebilmeli (şeffaflık), ama
+-- KİMİN NE KADAR AİDAT ÖDEDİĞİNİ görmemeli - o kişisel bilgi.
 --
--- Bu yüzden otomatik aidat kayıtlarının açıklamasında daire numarası
--- tutulmuyor - kayıtlar artık tüm sakinlere görünüyor.
+-- Bu yüzden okuma iki kademeli:
+--   * Giderler ve elle girilen gelirler: herkese açık, kalem kalem
+--   * Aidat tahsilatları (source='dues'): yalnızca yönetici/yardımcısı
+--     satır bazında görebilir. Sakinler yalnızca TOPLAMI görür ve o da
+--     aşağıdaki dues_income_total() fonksiyonundan gelir.
+--
+-- Arayüzde toplamak tek başına yeterli olmazdı: anon anahtarı olan biri
+-- tabloyu doğrudan sorgulayıp isimleri okuyabilirdi.
 --
 -- has_duty() ve is_admin() enable_rls.sql'de tanımlanıyor; bu betiği
 -- ondan SONRA çalıştırın.
@@ -52,7 +57,19 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "transactions_select" ON transactions;
 CREATE POLICY "transactions_select" ON transactions FOR SELECT TO authenticated
-  USING (true);
+  USING (is_admin() OR has_duty() OR source <> 'dues');
+
+-- Sakinlerin aidat gelirini tek kalem olarak görebilmesi için toplam.
+-- SECURITY DEFINER: satırları okuyamayan kullanıcı da toplamı alabilsin,
+-- ama tek tek kayıtlara asla erişemesin.
+CREATE OR REPLACE FUNCTION dues_income_total()
+RETURNS NUMERIC AS $$
+  SELECT COALESCE(SUM(amount), 0)
+  FROM transactions
+  WHERE type = 'income' AND source = 'dues';
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+GRANT EXECUTE ON FUNCTION dues_income_total() TO authenticated;
 
 DROP POLICY IF EXISTS "transactions_insert" ON transactions;
 CREATE POLICY "transactions_insert" ON transactions FOR INSERT TO authenticated

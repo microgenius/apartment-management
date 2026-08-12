@@ -3,6 +3,8 @@ import { transactionsService, type Transaction } from '../services/transactionsS
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Sakinler aidat satırlarını göremiyor; toplamı ayrı sorguyla alıyoruz
+  const [duesTotal, setDuesTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -10,7 +12,12 @@ export function useTransactions() {
     try {
       setLoading(true);
       setError(null);
-      setTransactions(await transactionsService.getAll());
+      const [rows, dues] = await Promise.all([
+        transactionsService.getAll(),
+        transactionsService.getDuesTotal()
+      ]);
+      setTransactions(rows);
+      setDuesTotal(dues);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
       console.error('Error fetching transactions:', err);
@@ -23,5 +30,5 @@ export function useTransactions() {
     fetchTransactions();
   }, []);
 
-  return { transactions, loading, error, refetch: fetchTransactions };
+  return { transactions, duesTotal, loading, error, refetch: fetchTransactions };
 }

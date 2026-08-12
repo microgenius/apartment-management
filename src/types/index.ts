@@ -187,6 +187,9 @@ export interface SettingsViewProps extends CommonProps {
 
 export interface FinanceViewProps extends CommonProps {
   transactions: Transaction[];
+  /** Aidat gelirlerinin toplamı. Sakinler satırları göremediği için
+   *  toplam ayrı geliyor (bkz. dues_income_total()). */
+  duesTotal: number;
   refetchTransactions: () => void;
   lang: Language;
 }
