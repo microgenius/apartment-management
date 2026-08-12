@@ -3,7 +3,7 @@
 // geçmiş borçları silmemeli.
 // Çalıştırmak için:  node --experimental-strip-types src/utils/ledger.test.ts
 import assert from 'node:assert/strict';
-import { getResidentLedgerWithPlanning, calculateTotalDebt, sortByOldDoor, oldDoorSortValue } from './helpers.ts';
+import { getResidentLedgerWithPlanning, calculateTotalDebt, calculatePayableTotal, sortByOldDoor, oldDoorSortValue } from './helpers.ts';
 import type { Resident, ResidentDuty } from '../types/index.ts';
 
 const makeResident = (duty: ResidentDuty | null, dutySince: string | null): Resident => ({
@@ -75,3 +75,23 @@ assert.equal(oldDoorSortValue(''), Number.MAX_SAFE_INTEGER);
 assert.equal(oldDoorSortValue('abc'), Number.MAX_SAFE_INTEGER, 'sayı olmayan sona');
 
 console.log('✓ eski kapı numarası sıralaması geçti');
+
+// --- Peşin ödeme: tahsilat sınırı borç değil, ödenebilir toplam olmalı ---
+// Borcu olmayan ama gelecek ayları planlı görünen sakin peşin ödeyebilmeli.
+const planli = getResidentLedgerWithPlanning(makeResident(null, null), MEETING, 'tr', DUE, START);
+const bugun = new Date();
+// Tüm aylar açık olduğu için ödenebilir toplam = 12 ay
+assert.equal(calculatePayableTotal(planli), 1200, 'planlı aylar da ödenebilir sayılmalı');
+
+// Kısmi ödenmiş kalemde yalnızca KALAN kısım ödenebilir olmalı
+const kismi = [
+  { id: 'a', date: '2026-01-01', desc: '', amount: 100, status: 'partial_paid' as const, paid_amount: 40 },
+  { id: 'b', date: '2026-02-01', desc: '', amount: 100, status: 'planned' as const, paid_amount: 0 },
+  { id: 'c', date: '2025-12-01', desc: '', amount: 100, status: 'paid' as const, paid_amount: 100 }
+];
+assert.equal(calculatePayableTotal(kismi), 160, '60 kalan + 100 planlı; ödenmiş sayılmamalı');
+// Borç göstergesi planlıyı saymamalı - kimse geleceğe borçlu değil
+assert.equal(calculateTotalDebt(kismi), 60, 'borç yalnızca vadesi gelmiş kısım');
+void bugun;
+
+console.log('✓ peşin ödeme sınırı kontrolleri geçti');

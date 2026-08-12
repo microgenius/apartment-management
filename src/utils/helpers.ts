@@ -23,6 +23,20 @@ export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
 };
 
 /**
+ * Ödenebilir toplam: açık borç + henüz vadesi gelmemiş planlı aidatlar.
+ *
+ * calculateTotalDebt'ten farkı 'planned' kalemleri de saymasıdır. Borç
+ * göstergesi için o doğru (kimse geleceğe borçlu değil), ama TAHSİLAT için
+ * üst sınır bu olmalı: peşin ödeyen sakinin parası planlı aylara dağıtılıyor.
+ * Sınırı buraya koymanın sebebi, planlama ufkunun ötesine ödenen paranın
+ * uygulanacak bir kalemi olmaması - kasaya girer ama hiçbir ayı kapatmaz.
+ */
+export const calculatePayableTotal = (ledgerItems: LedgerItem[]): number =>
+  ledgerItems
+    .filter((item) => item.status !== 'paid')
+    .reduce((acc, item) => acc + (item.amount - (item.paid_amount || 0)), 0);
+
+/**
  * Sakinin ledger'ını planlı ödemelerle birlikte döndürür
  * @param resident - Sakin bilgisi
  * @param meetingDate - Toplantı tarihi

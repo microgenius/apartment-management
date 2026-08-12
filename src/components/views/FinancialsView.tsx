@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, CheckCircle, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Wallet, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import type { FinancialsViewProps, LedgerItem } from '../../types';
 import { ledgersService } from '../../services/ledgersService';
 import { transactionsService } from '../../services/transactionsService';
@@ -8,7 +8,7 @@ import { receiptRequestsService } from '../../services/receiptRequestsService';
 import { useReceiptRequests } from '../../hooks/useReceiptRequests';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
-import { sortLedgerItems, LOCALES } from '../../utils/helpers';
+import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
 import { canManageOthers } from '../../utils/permissions';
 
 export const FinancialsView: React.FC<FinancialsViewProps> = ({
@@ -77,9 +77,17 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     if (!selectedDebtor) return;
 
     const debtorLedger = getResidentLedgerWithPlanning(selectedDebtor);
-    const totalDebt = calculateTotalDebt(debtorLedger);
-    if (paymentAmount > totalDebt) {
-      setErrorModal({ isOpen: true, title: 'Hata', message: 'Girilen tutar toplam borçtan fazla.' });
+    // Sınır güncel borç değil, genel kurula kadar ödenebilir toplam: peşin
+    // ödeyen sakinin parası planlı aylara dağıtılabilsin. Ötesine izin
+    // vermiyoruz çünkü uygulanacak kalem kalmaz - para kasaya girer ama
+    // hiçbir ayı kapatmaz, sessizce kaybolmuş gibi görünür.
+    const payable = calculatePayableTotal(debtorLedger);
+    if (paymentAmount > payable) {
+      setErrorModal({
+        isOpen: true,
+        title: t('error_occurred'),
+        message: `${t('payment_exceeds_payable')} (${t('max')}: ${payable.toFixed(2)} ₺)`
+      });
       return;
     }
 
@@ -354,18 +362,21 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                           </button>
                         </td>
                         <td className="p-4 text-center">
-                          {debt > 0 ? (
-                            <button 
-                              onClick={() => {
-                                setSelectedDebtor(resident); 
-                                setPaymentAmountInput(''); 
-                                setPaymentModalOpen(true);
-                              }} 
-                              className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-700 flex items-center mx-auto"
-                            >
-                              <CreditCard size={12} className="mr-1"/> {t('collect')}
-                            </button>
-                          ) : <CheckCircle size={18} className="text-green-500 mx-auto" />}
+                          {/* Borcu olmayan sakinler de peşin ödeme yapabiliyor,
+                              bu yüzden buton her zaman görünür. Borçsuzda daha
+                              sönük: dikkat çekmesi gereken borçlular. */}
+                          <button
+                            onClick={() => {
+                              setSelectedDebtor(resident);
+                              setPaymentAmountInput('');
+                              setPaymentModalOpen(true);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center mx-auto text-white ${
+                              debt > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-400 hover:bg-slate-500'
+                            }`}
+                          >
+                            <CreditCard size={12} className="mr-1"/> {t('collect')}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -594,6 +605,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
               <div className={`mb-4 p-3 border rounded ${baseClasses.border}`}>
                 <p className={`text-sm ${baseClasses.textSub}`}>{selectedDebtor.name} (No: {selectedDebtor.door}{selectedDebtor.old_door ? `, ${t('old_door_short')}: ${selectedDebtor.old_door}` : ''})</p>
                 <p className="text-xl font-bold text-red-500 mt-1">{t('total')}: {calculateTotalDebt(getResidentLedgerWithPlanning(selectedDebtor))} ₺</p>
+                <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
+                  {t('prepayment_hint')} ({t('max')}: {calculatePayableTotal(getResidentLedgerWithPlanning(selectedDebtor)).toFixed(2)} ₺)
+                </p>
               </div>
               <input 
                 type="number" 
