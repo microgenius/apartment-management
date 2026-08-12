@@ -507,3 +507,44 @@ through the `resident_id` column for whoever needs it.
 ```sql
 DROP TABLE IF EXISTS transactions;
 ```
+
+---
+
+## 13. Phone Login Without SMS (`add_user_profiles_phone.sql`)
+
+### The problem
+Supabase refuses `signUp({ phone })` with **"Phone signups are disabled"**
+unless an SMS provider (Twilio/MessageBird/Vonage) is configured — its phone
+flow is built around OTP. This project deliberately has no OTP: the admin sets
+the password, and sending SMS would mean per-message cost plus Turkey's A2P/İYS
+registration process.
+
+### The workaround
+The phone number is turned into a stable technical e-mail address and the
+ordinary e-mail+password flow is used:
+
+```
+0532 123 45 67  ->  905321234567@phone.aksoysitesi.com
+```
+
+Nothing is ever sent to that address and the user never sees it — they type
+their phone number, the app derives the same address on both signup and login.
+The real number is kept human-readable in `user_profiles.phone`, which this
+script adds (and backfills for any accounts already created this way).
+
+### ⚠️ Required Supabase setting
+**Authentication → Providers → Email → "Confirm email" must be OFF.** Those
+generated addresses cannot receive a confirmation link, so with confirmation
+enabled a phone-only user could never sign in.
+
+### Trade-offs
+- Phone-only users appear in the dashboard with the generated address
+- E-mail password recovery is impossible for them — by design, passwords are
+  admin-managed (Settings → Kullanıcı Şifresi Sıfırlama)
+- Changing someone's phone number changes their login identity; an admin has
+  to update the account
+
+### Rollback
+```sql
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS phone;
+```

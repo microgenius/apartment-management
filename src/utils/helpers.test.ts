@@ -2,7 +2,7 @@
 // Üç pazar da kapsanıyor: Türkiye, Almanya, İrlanda.
 // Çalıştırmak için:  node --experimental-strip-types src/utils/helpers.test.ts
 import assert from 'node:assert/strict';
-import { toE164, isEmail, DIAL_CODES, toLocalISODate, todayISO } from './helpers.ts';
+import { toE164, isEmail, DIAL_CODES, toLocalISODate, todayISO, phoneToLoginEmail, isPhoneLoginEmail } from './helpers.ts';
 
 // --- Türkiye (+90) ---
 const TR = '+905072318420';
@@ -75,3 +75,26 @@ assert.equal(toLocalISODate(new Date(2026, 11, 31, 23, 59)), '2026-12-31', 'yıl
 assert.match(todayISO(), /^\d{4}-\d{2}-\d{2}$/);
 
 console.log('✓ toE164 / isEmail / yerel tarih kontrolleri geçti (TR, DE, IE)');
+
+// --- Telefondan giriş e-postası ---
+// Supabase telefon kaydını kapattığı için numara teknik bir adrese çevriliyor.
+// Kayıt ve giriş bu eşlemenin KARARLI olmasına dayanıyor: aynı numara farklı
+// yazımlarla girilse de aynı adrese çözülmeli, yoksa kullanıcı giremez.
+assert.equal(phoneToLoginEmail('0532 123 45 67', DIAL_CODES.tr), '905321234567@phone.aksoysitesi.com');
+assert.equal(phoneToLoginEmail('05321234567', DIAL_CODES.tr), '905321234567@phone.aksoysitesi.com');
+assert.equal(phoneToLoginEmail('5321234567', DIAL_CODES.tr), '905321234567@phone.aksoysitesi.com');
+assert.equal(phoneToLoginEmail('+90 532 123 45 67', DIAL_CODES.tr), '905321234567@phone.aksoysitesi.com');
+assert.equal(phoneToLoginEmail('0090 532 123 45 67', DIAL_CODES.de), '905321234567@phone.aksoysitesi.com');
+
+// Alman numarası, Almanca arayüz
+assert.equal(phoneToLoginEmail('0151 23456789', DIAL_CODES.de), '4915123456789@phone.aksoysitesi.com');
+
+// Çözülemeyen numara adres üretmemeli
+assert.equal(phoneToLoginEmail('123', DIAL_CODES.tr), null);
+assert.equal(phoneToLoginEmail('', DIAL_CODES.tr), null);
+
+assert.equal(isPhoneLoginEmail('905321234567@phone.aksoysitesi.com'), true);
+assert.equal(isPhoneLoginEmail('ahmet@gmail.com'), false);
+assert.equal(isPhoneLoginEmail(null), false);
+
+console.log('✓ telefondan giriş e-postası kontrolleri geçti');

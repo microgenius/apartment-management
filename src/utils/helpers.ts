@@ -193,6 +193,37 @@ export const sortByOldDoor = <T extends { old_door: string | null }>(items: T[])
   [...items].sort((a, b) => oldDoorSortValue(a.old_door) - oldDoorSortValue(b.old_door));
 
 /**
+ * Telefonla giriş için üretilen teknik e-posta alan adı.
+ *
+ * Supabase telefonla kaydı ("Phone signups are disabled") yalnızca bir SMS
+ * sağlayıcısı bağlanmışsa açıyor; bizim kullanım şeklimizde OTP yok, şifreyi
+ * yönetici belirliyor ve SMS göndermek istemiyoruz (ücretli + Türkiye A2P
+ * mevzuatı). Bu yüzden numaradan sabit bir e-posta üretip Supabase'in
+ * e-posta+şifre akışını kullanıyoruz.
+ *
+ * Bu adrese hiç posta gönderilmez, kullanıcı görmez. Gerçek numara
+ * user_profiles.phone alanında insan tarafından okunabilir halde durur.
+ */
+export const PHONE_LOGIN_DOMAIN = 'phone.aksoysitesi.com';
+
+/**
+ * Telefon numarasını giriş için kullanılan teknik e-postaya çevirir.
+ * Aynı numara her zaman aynı adrese çözülmeli: kayıt ve giriş bu eşlemenin
+ * kararlı olmasına dayanıyor.
+ *   "0532 123 45 67" + 90 -> "905321234567@phone.aksoysitesi.com"
+ * Numara çözülemezse null döner.
+ */
+export const phoneToLoginEmail = (phone: string, dialCode?: string): string | null => {
+  const e164 = toE164(phone, dialCode);
+  if (!e164) return null;
+  return `${e164.slice(1)}@${PHONE_LOGIN_DOMAIN}`;
+};
+
+/** Bir e-postanın telefondan üretilmiş teknik adres olup olmadığı. */
+export const isPhoneLoginEmail = (email: string | null | undefined): boolean =>
+  !!email && email.endsWith(`@${PHONE_LOGIN_DOMAIN}`);
+
+/**
  * Girdinin email mi telefon mu olduğunu ayırt eder.
  * Supabase signInWithPassword email ve telefonu ayrı alanlarda bekliyor.
  */
