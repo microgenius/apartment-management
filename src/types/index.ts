@@ -181,6 +181,7 @@ export interface SettingsViewProps extends CommonProps {
   setDebtStartDate: (date: string) => void;
   residents: Resident[];
   refetchResidents: () => void;
+  refetchContacts: () => void;
   lang: Language; // telefon numarasını doğru ülke koduyla normalize etmek için
 }
 

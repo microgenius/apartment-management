@@ -3,6 +3,7 @@ import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, 
 import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
+import { residentContactsService } from '../../services/residentContactsService';
 import { DIAL_CODES, LOCALES } from '../../utils/helpers';
 import { COUNTRIES } from '../../constants/countries';
 import { isAdmin } from '../../utils/permissions';
@@ -22,6 +23,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   darkMode,
   residents,
   refetchResidents,
+  refetchContacts,
   lang
 }) => {
   const { user, userProfile, createUser, refreshProfile } = useAuth();
@@ -169,6 +171,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newUserResidentId) {
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('resident_required') });
+      return;
+    }
+    if (!newUserPhone.trim()) {
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('phone_required') });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const { error, userId } = await createUser(
@@ -188,11 +199,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           : 'Kullanıcı oluşturulurken hata: ' + error.message;
         setErrorModal({ isOpen: true, title: 'Hata', message });
       } else {
-        if (userId && newUserResidentId) {
-          // Eşleştirme opsiyonel; seçilmişse hesabı sakin kaydına bağla.
-          // Aynı daireye başka hesaplar bağlıysa sorun değil, hepsi birlikte yaşar.
-          await userProfilesService.linkResident(userId, Number(newUserResidentId));
+        if (userId) {
+          const residentId = Number(newUserResidentId);
+          await userProfilesService.linkResident(userId, residentId);
+
+          // Yeni kullanıcı dairenin iletişim listesine de ekleniyor.
+          // Tür daire kaydından çıkarılıyor (Kiracı/Ev Sahibi); yanlışsa
+          // daire penceresinden düzeltilebiliyor.
+          const flat = residents.find((r) => r.id === residentId);
+          try {
+            const existing = await residentContactsService.getByResident(residentId);
+            await residentContactsService.create(residentId, {
+              type: flat?.type === 'Kiracı' ? 'tenant' : 'owner',
+              name: newUserName,
+              phone: newUserPhone.trim(),
+              email: newUserEmail.trim() || null,
+              // Dairenin ilk kişisiyse birincil olsun; sonrakiler ikincil
+              is_primary: existing.length === 0
+            });
+          } catch (contactError) {
+            // İletişim kaydı yazılamazsa kullanıcı yine de oluşmuş oluyor;
+            // hesabı geri almak yerine uyarıyoruz.
+            console.error('İletişim kişisi eklenemedi:', contactError);
+          }
+
           refetchResidents();
+          refetchContacts();
         }
         setSuccessModal({ isOpen: true, title: 'Başarılı', message: `${newUserName} başarıyla oluşturuldu! Kullanıcı artık giriş yapabilir.` });
         setNewUserEmail('');
@@ -402,7 +434,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div>
             <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
-              {t('phone')}
+              {t('phone')} {t('required_field')}
             </label>
             <div className="flex gap-2">
               <select
@@ -421,9 +453,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setNewUserPhone(e.target.value)}
                 className={`flex-1 p-3 rounded-lg border outline-none ${baseClasses.input}`}
                 placeholder={t('placeholder_phone')}
+                required
               />
             </div>
-            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('identifier_hint')}</p>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('phone_login_hint')}</p>
             <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('country_code_hint')}</p>
           </div>
 
@@ -458,14 +491,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div>
             <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
-              {t('link_resident')}
+              {t('link_resident')} {t('required_field')}
             </label>
             <select
               value={newUserResidentId}
               onChange={(e) => setNewUserResidentId(e.target.value)}
               className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              required
             >
-              <option value="">{t('link_resident_none')}</option>
+              <option value="">{t('select_resident')}</option>
               {/* Bağlı olanlar da listede: bir daireye birden fazla hesap bağlanabilir
                   (ev sahibi + eş + kiracı). Kaç hesabı olduğu parantezde gösteriliyor. */}
               {residents.map((r) => {
@@ -477,7 +511,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 );
               })}
             </select>
-            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('link_resident_hint')}</p>
+            <p className={`text-xs mt-1 ${baseClasses.textSub}`}>{t('link_resident_required_hint')}</p>
           </div>
 
           <div>

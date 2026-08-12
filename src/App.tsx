@@ -208,6 +208,7 @@ export default function App() {
                 darkMode={darkMode}
                 residents={residents}
                 refetchResidents={refetchResidents}
+                refetchContacts={refetchContacts}
                 lang={lang}
               />
             )}
