@@ -136,7 +136,6 @@ export interface HeaderProps {
 }
 
 export interface FinancialsViewProps extends CommonProps {
-  userRole: string;
   lang: Language;
   residents: Resident[];
   setResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
@@ -146,7 +145,6 @@ export interface FinancialsViewProps extends CommonProps {
 }
 
 export interface DashboardViewProps extends CommonProps {
-  userRole: string;
   residents: Resident[];
   contacts: ResidentContact[];
   refetchContacts: () => void;
@@ -157,7 +155,6 @@ export interface DashboardViewProps extends CommonProps {
 }
 
 export interface RequestBoxViewProps extends CommonProps {
-  userRole: string;
   requests: RequestItem[];
   setRequests: React.Dispatch<React.SetStateAction<RequestItem[]>>;
   isGenerating: boolean;

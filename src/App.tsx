@@ -28,7 +28,7 @@ import { FinanceView } from './components/views/FinanceView';
 
 export default function App() {
   // Auth
-  const { userRole, userProfile, signOut } = useAuth();
+  const { userProfile, signOut } = useAuth();
   
   // UI State - Initialize from cookies
   const [activeTab, setActiveTab] = useState<string>('financials');
@@ -122,8 +122,7 @@ export default function App() {
         <div className={`flex-1 overflow-auto relative ${baseClasses.bgMain}`}>
           <div className="max-w-6xl mx-auto py-4 sm:py-6 px-1 sm:px-0">
             {activeTab === 'dashboard' && (
-              <DashboardView 
-                userRole={userRole || 'resident'} 
+              <DashboardView
                 residents={residents} 
                 setSelectedApartment={setSelectedApartment} 
                 selectedApartment={selectedApartment}
@@ -140,7 +139,6 @@ export default function App() {
             
             {activeTab === 'financials' && (
               <FinancialsView
-                userRole={userRole || 'resident'}
                 lang={lang}
                 residents={residents}
                 setResidents={setResidents}
@@ -157,8 +155,7 @@ export default function App() {
             {activeTab === 'requests' && (
               <RequestBoxView 
                 requests={requests} 
-                setRequests={setRequests} 
-                userRole={userRole || 'resident'}
+                setRequests={setRequests}
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
                 t={t}

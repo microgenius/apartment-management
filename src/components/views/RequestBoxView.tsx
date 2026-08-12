@@ -4,14 +4,13 @@ import type { RequestBoxViewProps, RequestItem } from '../../types';
 import { callGemini } from '../../config/api';
 import { requestsService } from '../../services/requestsService';
 import { useAuth } from '../../contexts/AuthContext';
-import { canDeleteContent } from '../../utils/permissions';
+import { canDeleteContent, canManageOthers } from '../../utils/permissions';
 import { todayISO } from '../../utils/helpers';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 
 export const RequestBoxView: React.FC<RequestBoxViewProps> = ({ 
-  userRole, 
   requests, 
   setRequests, 
   isGenerating, 
@@ -25,6 +24,8 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
   lang 
 }) => {
   const { userProfile } = useAuth();
+  // Talepleri değerlendirmek, durum değiştirmek ve gündeme almak yönetim işi
+  const canManage = canManageOthers(userProfile);
   const [newRequestText, setNewRequestText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<RequestItem | null>(null);
   
@@ -42,7 +43,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
     }
   };
 
-  const filteredRequests = userRole === 'admin'
+  const filteredRequests = canManage
     ? requests
     : requests.filter((req) =>
         req.user_id ? req.user_id === userProfile?.id : req.user === userProfile?.full_name
@@ -113,7 +114,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
       </h2>
 
       {/* AI Assistant Section (Admin Only) */}
-      {userRole === 'admin' && (
+      {canManage && (
         <div className={`border rounded-xl p-6 mb-8 relative overflow-hidden ${darkMode ? 'bg-slate-800 border-purple-900/50' : `bg-gradient-to-r ${currentTheme.light} to-white ${currentTheme.border}`}`}>
           <div className="flex items-start justify-between relative z-10">
             <div>
@@ -177,7 +178,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
                 <span className={`text-xs ${baseClasses.textSub}`}>{req.date}</span>
               </div>
               
-              {userRole === 'admin' ? (
+              {canManage ? (
                 <div className="flex items-center gap-2">
                   <select 
                     value={req.status} 
@@ -219,7 +220,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
             </div>
             <p className={`mb-4 ${baseClasses.textSub}`}>{req.content}</p>
             
-            {userRole === 'admin' && (
+            {canManage && (
               <div className={`flex justify-end pt-3 border-t ${baseClasses.border} gap-2`}>
                 <button 
                   onClick={() => toggleAgenda(req.id)} 
@@ -231,7 +232,7 @@ export const RequestBoxView: React.FC<RequestBoxViewProps> = ({
               </div>
             )}
             
-            {userRole === 'resident' && req.inAgenda && (
+            {!canManage && req.inAgenda && (
               <div className={`mt-2 text-sm ${currentTheme.text} flex items-center font-medium`}>
                 <Gavel size={14} className="mr-1" /> {t('agenda')}
               </div>
