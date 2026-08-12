@@ -21,7 +21,10 @@ ALTER TABLE ledgers
 ADD CONSTRAINT ledgers_status_check 
 CHECK (status IN ('paid', 'unpaid', 'planned', 'partial_paid'));
 
-RAISE NOTICE 'New status constraint added with partial_paid support';
+-- NOT: burada DO bloğu dışında bir RAISE NOTICE vardı. RAISE yalnızca
+-- PL/pgSQL içinde geçerli olduğu için düz SQL'de sözdizimi hatası veriyordu;
+-- Supabase SQL Editor tüm betiği tek işlem olarak çalıştırdığından bu hata
+-- yukarıdaki ADD CONSTRAINT'i de geri alıyordu. Bildirim satırı kaldırıldı.
 
 -- Step 3: Verify the constraint
 SELECT 
