@@ -42,7 +42,8 @@ When adding a new data entity, follow this same four-layer chain (table → serv
 
 `src/utils/helpers.ts` is where the non-obvious business logic lives:
 - `getResidentLedgerWithPlanning` synthesizes projected monthly dues between `debt_start_date` and the configured `meetingDate` (both stored in the `settings` table via `useSettings`), filling in months that don't have an actual `ledgers` row yet, and marking past/current synthesized months `unpaid` vs future ones `planned`.
-- `calculateTotalDebt` sums `unpaid` + the remaining portion of `partial_paid` ledger items.
+- `calculateTotalDebt` sums what is still owed on `unpaid` / `partial_paid` items, **late fee included**.
+- **Late fee** (general assembly decision): dues unpaid past their 3rd month accrue 5% compound interest each month from the 4th, where the due month counts as the 1st. It is *derived from the due date*, never stored — storing it would need a monthly job, and a job that skips or double-runs would corrupt balances silently. `remainingOf` compares payments against principal **plus** accrued fee, which is what stops a resident who pays only the principal from appearing settled; `feeOnlyDebts` surfaces exactly those cases for the manager.
 - `sortLedgerItems` imposes a fixed status display order (unpaid → partial_paid → planned → paid).
 
 Any view showing debt totals or ledger lists should go through these helpers rather than re-deriving the logic locally, so the planning/partial-payment rules stay in one place.

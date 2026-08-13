@@ -9,18 +9,80 @@ import type { Resident, LedgerItem, BaseClasses, Language } from '../types';
  * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
  * @returns Toplam borç miktarı
  */
-export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
-  return ledgerItems
+export const calculateTotalDebt = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
+  ledgerItems
     .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
-    .reduce((acc, item) => {
-      if (item.status === 'partial_paid') {
-        // For partial payments, calculate remaining amount
-        const remaining = item.amount - (item.paid_amount || 0);
-        return acc + remaining;
-      }
-      return acc + item.amount;
-    }, 0);
+    // remainingOf gecikme faizini de kapsıyor: ana parayı ödeyip faizi
+    // ödemeyen kişide borç sıfırlanmıyor
+    .reduce((acc, item) => acc + remainingOf(item, today), 0);
+
+// ==========================================
+// GECİKME FAİZİ
+// ==========================================
+// Genel kurul kararı: bir aidat 3 aydan fazla ödenmezse, 4. aydan itibaren
+// her ay %5 BİLEŞİK gecikme faizi işler.
+//
+// Faiz veritabanında satır olarak TUTULMUYOR, vade tarihinden türetiliyor.
+// Sebebi: saklansaydı her ay tüm borçlara faiz ekleyen bir zamanlanmış iş
+// gerekirdi; o iş bir ay çalışmazsa ya da iki kez çalışırsa borçlar sessizce
+// yanlış olurdu. Türetilen faiz her zaman bugünün tarihine göre doğru.
+
+/** Aylık gecikme faizi oranı (genel kurul kararı). */
+export const LATE_FEE_MONTHLY_RATE = 0.05;
+
+/**
+ * Faizsiz ay sayısı. Vade ayı 1. ay sayılır: Ocak aidatı için Ocak, Şubat ve
+ * Mart faizsiz; 4. ay olan NİSAN'da ilk %5 işler.
+ */
+export const LATE_FEE_GRACE_MONTHS = 3;
+
+/** İki tarih arasındaki tam ay farkı. */
+const monthsBetween = (from: Date, to: Date): number =>
+  (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+
+/**
+ * Bir kalemin faiz işlemiş ay sayısı. Tolerans düşülmüş halde döner,
+ * negatifse 0.
+ */
+export const lateFeeMonths = (dueDate: string, today: Date = new Date()): number => {
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return 0;
+  // Vade ayının kendisi 1. ay. Ocak vadeli borç Nisan'da 4. ayına girer ve
+  // ilk faizini orada alır; bu yüzden aradaki fark değil, ay sırası bakılıyor.
+  const monthIndex = monthsBetween(due, today) + 1;
+  return Math.max(0, monthIndex - LATE_FEE_GRACE_MONTHS);
 };
+
+/**
+ * Faiz dahil borç tutarı (ana para + bileşik faiz).
+ * Ödenmiş kalemlere faiz işlemez.
+ */
+export const amountWithLateFee = (item: LedgerItem, today: Date = new Date()): number => {
+  if (item.status === 'paid' || item.status === 'planned') return item.amount;
+  const months = lateFeeMonths(item.date, today);
+  if (months === 0) return item.amount;
+  return item.amount * Math.pow(1 + LATE_FEE_MONTHLY_RATE, months);
+};
+
+/** Yalnızca faiz kısmı (raporlamada ana paradan ayırmak için). */
+export const lateFeeOf = (item: LedgerItem, today: Date = new Date()): number =>
+  amountWithLateFee(item, today) - item.amount;
+
+/**
+ * Bir kalemden geriye kalan borç: faiz dahil tutardan ödenen düşülür.
+ *
+ * Kritik nokta: ana parayı ödeyip faizi ödemeyen kişide bu değer sıfırdan
+ * büyük kalır, yani borç kapanmış görünmez. Ödemeyi yalnızca ana parayla
+ * karşılaştırsaydık faiz sessizce silinirdi.
+ */
+export const remainingOf = (item: LedgerItem, today: Date = new Date()): number =>
+  Math.max(0, amountWithLateFee(item, today) - (item.paid_amount || 0));
+
+/** Ana parası kapanmış ama faizi ödenmemiş kalem mi? */
+export const isFeeOnlyDebt = (item: LedgerItem, today: Date = new Date()): boolean =>
+  item.status !== 'paid' &&
+  (item.paid_amount || 0) >= item.amount &&
+  remainingOf(item, today) > 0.005;
 
 /**
  * Ödenebilir toplam: açık borç + henüz vadesi gelmemiş planlı aidatlar.
@@ -31,10 +93,20 @@ export const calculateTotalDebt = (ledgerItems: LedgerItem[]): number => {
  * Sınırı buraya koymanın sebebi, planlama ufkunun ötesine ödenen paranın
  * uygulanacak bir kalemi olmaması - kasaya girer ama hiçbir ayı kapatmaz.
  */
-export const calculatePayableTotal = (ledgerItems: LedgerItem[]): number =>
+export const calculatePayableTotal = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
   ledgerItems
     .filter((item) => item.status !== 'paid')
-    .reduce((acc, item) => acc + (item.amount - (item.paid_amount || 0)), 0);
+    .reduce((acc, item) => acc + remainingOf(item, today), 0);
+
+/** Bir sakinin toplam gecikme faizi (ana para hariç). */
+export const totalLateFee = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
+  ledgerItems
+    .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
+    .reduce((acc, item) => acc + Math.max(0, lateFeeOf(item, today) - Math.max(0, (item.paid_amount || 0) - item.amount)), 0);
+
+/** Ana parası kapanmış ama faizi ödenmemiş kalemler. */
+export const feeOnlyDebts = (ledgerItems: LedgerItem[], today: Date = new Date()): LedgerItem[] =>
+  ledgerItems.filter((item) => isFeeOnlyDebt(item, today));
 
 /**
  * Sakinin ledger'ını planlı ödemelerle birlikte döndürür

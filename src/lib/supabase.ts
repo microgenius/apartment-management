@@ -18,7 +18,6 @@ export type Database = {
           old_door: string | null;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
-          phone: string;
           status: 'Dolu' | 'Boş';
           created_at: string;
           updated_at: string;
@@ -29,7 +28,6 @@ export type Database = {
           old_door?: string | null;
           name: string;
           type: 'Kiracı' | 'Ev Sahibi';
-          phone: string;
           status: 'Dolu' | 'Boş';
           created_at?: string;
           updated_at?: string;
@@ -40,7 +38,6 @@ export type Database = {
           old_door?: string | null;
           name?: string;
           type?: 'Kiracı' | 'Ev Sahibi';
-          phone?: string;
           status?: 'Dolu' | 'Boş';
           created_at?: string;
           updated_at?: string;

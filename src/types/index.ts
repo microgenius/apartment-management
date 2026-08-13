@@ -31,7 +31,6 @@ export interface Resident {
   old_door: string | null;
   name: string;
   type: 'Kiracı' | 'Ev Sahibi';
-  phone: string;
   status: 'Dolu' | 'Boş';
   duty: ResidentDuty | null;
   /** Göreve başlama tarihi. Muafiyet bu aydan itibaren işler; öncesindeki

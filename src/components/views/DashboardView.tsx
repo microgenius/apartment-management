@@ -4,6 +4,8 @@ import type { DashboardViewProps } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { canEditResident, canManageOthers } from '../../utils/permissions';
 import { ResidentContacts } from '../ResidentContacts';
+import { LateFeeNotice } from '../LateFeeNotice';
+import { totalLateFee } from '../../utils/helpers';
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
   residents, 
@@ -22,6 +24,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Borç durumlarını görmek yönetim işi; görevden türüyor, rolden değil
   const canManage = canManageOthers(userProfile);
 
+  // Kendi dairesinin işlemiş faizi - uyarıyı somutlaştırıyor
+  const myFlat = residents.find((r) => r.id === userProfile?.resident_id);
+  const myLateFee = myFlat ? totalLateFee(getResidentLedgerWithPlanning(myFlat)) : 0;
+
   return (
   <div className="p-4 animate-fade-in">
     <div className="flex justify-between items-center mb-6">
@@ -33,6 +39,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {canManage ? t('manager_view_desc') : t('resident_view_desc')}
       </div>
     </div>
+
+    <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} />
 
     <div className={`p-4 sm:p-6 rounded-xl shadow-sm border ${baseClasses.bgCard}`}>
       <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]">
@@ -127,10 +135,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className={`flex justify-between border-b pb-2 ${baseClasses.border}`}>
               <span className={baseClasses.textSub}>{t('name')}:</span>
               <span className={`font-medium ${baseClasses.textMain}`}>{selectedApartment.name}</span>
-            </div>
-            <div className={`flex justify-between border-b pb-2 ${baseClasses.border}`}>
-              <span className={baseClasses.textSub}>{t('contact')}:</span>
-              <span className={`font-medium ${baseClasses.textMain}`}>{selectedApartment.phone}</span>
             </div>
             
             {canManage && (() => {

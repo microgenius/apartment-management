@@ -9,6 +9,8 @@ import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
 import { canManageOthers } from '../../utils/permissions';
+import { LateFeeNotice } from '../LateFeeNotice';
+import { totalLateFee, feeOnlyDebts, remainingOf } from '../../utils/helpers';
 
 export const FinancialsView: React.FC<FinancialsViewProps> = ({
   lang,
@@ -54,6 +56,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     residents.find((r) => r.id === userProfile?.resident_id) ??
     residents.find((r) => r.name === userProfile?.full_name);
   const myFullLedgerUnsorted = myResidentRecord ? getResidentLedgerWithPlanning(myResidentRecord) : [];
+  const myLateFee = totalLateFee(myFullLedgerUnsorted);
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
   
   // Apply custom sorting
@@ -305,6 +308,70 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
         <h2 className={`text-2xl font-bold ${baseClasses.textMain} mb-6 flex items-center`}>
           <Wallet className={`mr-2 ${currentTheme.text}`} /> {t('financials')} (Admin)
         </h2>
+
+        <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} />
+
+        {/* Ana parayı ödeyip faizi ödemeyenler. Bu kayıtlar borçlu listesinde
+            küçük tutarlarla göründüğü için gözden kaçıyor; ayrı başlık altında
+            toplanınca takip edilebilir hale geliyor. */}
+        {(() => {
+          const feeDebtors = residents
+            .map((r) => {
+              const ledger = getResidentLedgerWithPlanning(r);
+              const items = feeOnlyDebts(ledger);
+              const total = items.reduce((acc, i) => acc + remainingOf(i), 0);
+              return { resident: r, items, total };
+            })
+            .filter((x) => x.items.length > 0);
+
+          if (feeDebtors.length === 0) return null;
+
+          return (
+            <div className={`mb-6 p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
+              <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
+                <Clock size={18} className="mr-2 text-amber-500" /> {t('fee_only_debts')}
+              </h3>
+              <p className={`text-sm mt-1 mb-3 ${baseClasses.textSub}`}>{t('fee_only_debts_desc')}</p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className={`border-b ${baseClasses.border} ${baseClasses.textSub}`}>
+                      <th className="p-2">{t('flat')}</th>
+                      <th className="p-2">{t('name')}</th>
+                      <th className="p-2">{t('desc')}</th>
+                      <th className="p-2 text-right">{t('outstanding_fee')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {feeDebtors.map(({ resident, items, total }) => (
+                      <React.Fragment key={resident.id}>
+                        {items.map((item, idx) => (
+                          <tr key={item.id} className={`border-b ${baseClasses.border}`}>
+                            <td className={`p-2 ${baseClasses.textMain}`}>{idx === 0 ? resident.door : ''}</td>
+                            <td className={`p-2 ${baseClasses.textSub}`}>{idx === 0 ? resident.name : ''}</td>
+                            <td className={`p-2 ${baseClasses.textSub}`}>{item.desc}</td>
+                            <td className="p-2 text-right font-bold text-amber-600">
+                              {remainingOf(item).toFixed(2)} ₺
+                            </td>
+                          </tr>
+                        ))}
+                        {items.length > 1 && (
+                          <tr className={`border-b ${baseClasses.border}`}>
+                            <td className="p-2" colSpan={3}></td>
+                            <td className={`p-2 text-right font-bold ${baseClasses.textMain}`}>
+                              {total.toFixed(2)} ₺
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className={`lg:col-span-2 rounded-xl shadow-sm border overflow-hidden ${baseClasses.bgCard}`}>
             <div className={`p-4 border-b ${baseClasses.border} flex justify-between items-center ${darkMode ? 'bg-slate-700/50' : currentTheme.light}`}>
@@ -632,6 +699,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
       <h2 className={`text-2xl font-bold ${baseClasses.textMain} mb-6 flex items-center`}>
         <Wallet className={`mr-2 ${currentTheme.text}`} /> {t('financials')}
       </h2>
+
+      <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className={`bg-gradient-to-br ${currentTheme.gradient} rounded-xl p-6 text-white shadow-lg`}>
           <p className="opacity-80 mb-1">{t('total_debt')}</p>
