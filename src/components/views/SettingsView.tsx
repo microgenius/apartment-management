@@ -25,7 +25,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   residents,
   refetchResidents,
   refetchContacts,
-  lang
+  lang,
+  lateFee,
+  setLateFee
 }) => {
   const { user, userProfile, createUser, refreshProfile } = useAuth();
   // Görev atama ve yöneticilik devri yalnızca admin'de: aksi halde yardımcı
@@ -159,6 +161,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('password_reset_failed') });
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  // Gecikme faizi ayarları
+  const [feeRate, setFeeRate] = useState<string>(String(+(lateFee.rate * 100).toFixed(4)));
+  const [feeMonths, setFeeMonths] = useState<string>(String(lateFee.graceMonths));
+  const [feeDays, setFeeDays] = useState<string>(String(lateFee.graceDays));
+  const [savingFee, setSavingFee] = useState(false);
+
+  useEffect(() => {
+    setFeeRate(String(+(lateFee.rate * 100).toFixed(4)));
+    setFeeMonths(String(lateFee.graceMonths));
+    setFeeDays(String(lateFee.graceDays));
+  }, [lateFee]);
+
+  const handleSaveLateFee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const rate = parseFloat(feeRate);
+    const months = parseInt(feeMonths, 10);
+    const days = parseInt(feeDays, 10);
+
+    if (!Number.isFinite(rate) || rate < 0 || !Number.isInteger(months) || months < 0 || !Number.isInteger(days) || days < 0) {
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('late_fee_invalid') });
+      return;
+    }
+
+    setSavingFee(true);
+    try {
+      await setLateFee({ rate: rate / 100, graceMonths: months, graceDays: days });
+      setSuccessModal({ isOpen: true, title: t('success'), message: t('late_fee_saved') });
+    } catch (error) {
+      console.error('Error saving late fee settings:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('late_fee_save_failed') });
+    } finally {
+      setSavingFee(false);
     }
   };
 
@@ -541,6 +578,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {isCreating ? t('creating') : t('create_user_btn')}
           </button>
         </form>
+      </div>
+
+      {/* Gecikme Faizi - genel kurul kararıyla değişebildiği için kodda değil
+          ayarlarda tutuluyor */}
+      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
+          <AlertCircle className="mr-2" size={20} />
+          {t('late_fee_settings')}
+        </h3>
+        <p className={`text-sm mb-4 ${baseClasses.textSub}`}>{t('late_fee_settings_desc')}</p>
+
+        <form onSubmit={handleSaveLateFee} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('late_fee_rate_label')}
+            </label>
+            <input
+              type="number" step="0.01" min="0"
+              value={feeRate}
+              onChange={(e) => setFeeRate(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              required
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('late_fee_months_label')}
+            </label>
+            <input
+              type="number" step="1" min="0"
+              value={feeMonths}
+              onChange={(e) => setFeeMonths(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              required
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('late_fee_days_label')}
+            </label>
+            <input
+              type="number" step="1" min="0"
+              value={feeDays}
+              onChange={(e) => setFeeDays(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+              required
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit" disabled={savingFee}
+              className={`w-full ${currentTheme.primary} text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50`}
+            >
+              {savingFee ? t('saving') : t('update')}
+            </button>
+          </div>
+        </form>
+        <p className={`text-xs mt-2 ${baseClasses.textSub}`}>{t('late_fee_days_hint')}</p>
       </div>
 
       {/* Site Görevleri - görevi olan daireden aidat alınmaz.

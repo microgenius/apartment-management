@@ -18,7 +18,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   t,
   darkMode,
   contacts,
-  refetchContacts
+  refetchContacts,
+  lateFee
 }) => {
   const { userProfile } = useAuth();
   // Borç durumlarını görmek yönetim işi; görevden türüyor, rolden değil
@@ -26,7 +27,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Kendi dairesinin işlemiş faizi - uyarıyı somutlaştırıyor
   const myFlat = residents.find((r) => r.id === userProfile?.resident_id);
-  const myLateFee = myFlat ? totalLateFee(getResidentLedgerWithPlanning(myFlat)) : 0;
+  const myLateFee = myFlat ? totalLateFee(getResidentLedgerWithPlanning(myFlat), new Date(), lateFee) : 0;
 
   return (
   <div className="p-4 animate-fade-in">
@@ -40,7 +41,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     </div>
 
-    <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} />
+    <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} config={lateFee} />
 
     <div className={`p-4 sm:p-6 rounded-xl shadow-sm border ${baseClasses.bgCard}`}>
       <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]">

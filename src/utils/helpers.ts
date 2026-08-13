@@ -9,64 +9,124 @@ import type { Resident, LedgerItem, BaseClasses, Language } from '../types';
  * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
  * @returns Toplam borç miktarı
  */
-export const calculateTotalDebt = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
+export const calculateTotalDebt = (
+  ledgerItems: LedgerItem[],
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number =>
   ledgerItems
     .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
     // remainingOf gecikme faizini de kapsıyor: ana parayı ödeyip faizi
     // ödemeyen kişide borç sıfırlanmıyor
-    .reduce((acc, item) => acc + remainingOf(item, today), 0);
+    .reduce((acc, item) => acc + remainingOf(item, today, config), 0);
 
 // ==========================================
 // GECİKME FAİZİ
 // ==========================================
-// Genel kurul kararı: bir aidat 3 aydan fazla ödenmezse, 4. aydan itibaren
-// her ay %5 BİLEŞİK gecikme faizi işler.
+// Genel kurul kararı: vadesinde ödenmeyen aidata, tolerans süresi dolduktan
+// sonra her ay BİLEŞİK faiz işler.
 //
 // Faiz veritabanında satır olarak TUTULMUYOR, vade tarihinden türetiliyor.
 // Sebebi: saklansaydı her ay tüm borçlara faiz ekleyen bir zamanlanmış iş
 // gerekirdi; o iş bir ay çalışmazsa ya da iki kez çalışırsa borçlar sessizce
 // yanlış olurdu. Türetilen faiz her zaman bugünün tarihine göre doğru.
+//
+// Oran ve süreler settings tablosundan geliyor (bkz. add_late_fee_settings.sql);
+// buradaki değerler yalnızca ayarlar okunamazsa devreye giren yedek.
 
-/** Aylık gecikme faizi oranı (genel kurul kararı). */
-export const LATE_FEE_MONTHLY_RATE = 0.05;
+export interface LateFeeConfig {
+  /** Aylık faiz oranı, ondalık olarak (0.05 = %5) */
+  rate: number;
+  /** Faizsiz ay sayısı. Vade ayı 1. ay sayılır. */
+  graceMonths: number;
+  /** Ay toleransının üstüne eklenen gün sayısı. */
+  graceDays: number;
+}
+
+export const DEFAULT_LATE_FEE: LateFeeConfig = {
+  rate: 0.05,
+  graceMonths: 3,
+  graceDays: 10
+};
 
 /**
- * Faizsiz ay sayısı. Vade ayı 1. ay sayılır: Ocak aidatı için Ocak, Şubat ve
- * Mart faizsiz; 4. ay olan NİSAN'da ilk %5 işler.
+ * "YYYY-MM-DD" metnini YEREL tarihe çevirir.
+ *
+ * new Date('2026-01-01') bu biçimi UTC olarak ayrıştırıyor; yerel saatle
+ * (new Date(2026, 0, 1)) karşılaştırıldığında saat dilimi kadar kayma
+ * oluşuyor ve gün hesapları bir gün şaşabiliyor. Faiz başlangıcı güne
+ * duyarlı olduğu için burada açıkça yerel ayrıştırma yapılıyor.
  */
-export const LATE_FEE_GRACE_MONTHS = 3;
+const parseLocalDate = (iso: string): Date | null => {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+};
 
 /** İki tarih arasındaki tam ay farkı. */
 const monthsBetween = (from: Date, to: Date): number =>
   (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
 
 /**
- * Bir kalemin faiz işlemiş ay sayısı. Tolerans düşülmüş halde döner,
- * negatifse 0.
+ * Faizin işlemeye başladığı an.
+ *
+ * graceMonths vade ayını da sayıyor: 3 ay ise Ocak vadeli borç Nisan başında
+ * 4. ayına girer. graceDays bunun üstüne biniyor - üç ayda bir ödeme yapanlar
+ * birkaç günlük gecikmeyle faize girmesin diye.
  */
-export const lateFeeMonths = (dueDate: string, today: Date = new Date()): number => {
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return 0;
-  // Vade ayının kendisi 1. ay. Ocak vadeli borç Nisan'da 4. ayına girer ve
-  // ilk faizini orada alır; bu yüzden aradaki fark değil, ay sırası bakılıyor.
-  const monthIndex = monthsBetween(due, today) + 1;
-  return Math.max(0, monthIndex - LATE_FEE_GRACE_MONTHS);
+export const lateFeeStartDate = (dueDate: string, config: LateFeeConfig = DEFAULT_LATE_FEE): Date | null => {
+  const due = parseLocalDate(dueDate);
+  if (!due || Number.isNaN(due.getTime())) return null;
+  const start = new Date(due);
+  start.setMonth(start.getMonth() + config.graceMonths);
+  start.setDate(start.getDate() + config.graceDays);
+  return start;
+};
+
+/** Faiz işlemiş ay sayısı. Tolerans dolmadıysa 0. */
+export const lateFeeMonths = (
+  dueDate: string,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number => {
+  const start = lateFeeStartDate(dueDate, config);
+  if (!start || today < start) return 0;
+  return 1 + monthsBetween(start, today);
 };
 
 /**
- * Faiz dahil borç tutarı (ana para + bileşik faiz).
- * Ödenmiş kalemlere faiz işlemez.
+ * Faiz başlamasına kalan gün. Faiz zaten işliyorsa ya da tarih geçersizse
+ * null döner. "Faize yaklaşan borç" uyarısı bunu kullanıyor.
  */
-export const amountWithLateFee = (item: LedgerItem, today: Date = new Date()): number => {
+export const daysUntilLateFee = (
+  dueDate: string,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number | null => {
+  const start = lateFeeStartDate(dueDate, config);
+  if (!start || today >= start) return null;
+  const ms = start.getTime() - today.getTime();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+};
+
+/** Faiz dahil borç tutarı (ana para + bileşik faiz). */
+export const amountWithLateFee = (
+  item: LedgerItem,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number => {
   if (item.status === 'paid' || item.status === 'planned') return item.amount;
-  const months = lateFeeMonths(item.date, today);
+  const months = lateFeeMonths(item.date, today, config);
   if (months === 0) return item.amount;
-  return item.amount * Math.pow(1 + LATE_FEE_MONTHLY_RATE, months);
+  return item.amount * Math.pow(1 + config.rate, months);
 };
 
 /** Yalnızca faiz kısmı (raporlamada ana paradan ayırmak için). */
-export const lateFeeOf = (item: LedgerItem, today: Date = new Date()): number =>
-  amountWithLateFee(item, today) - item.amount;
+export const lateFeeOf = (
+  item: LedgerItem,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number => amountWithLateFee(item, today, config) - item.amount;
 
 /**
  * Bir kalemden geriye kalan borç: faiz dahil tutardan ödenen düşülür.
@@ -75,14 +135,21 @@ export const lateFeeOf = (item: LedgerItem, today: Date = new Date()): number =>
  * büyük kalır, yani borç kapanmış görünmez. Ödemeyi yalnızca ana parayla
  * karşılaştırsaydık faiz sessizce silinirdi.
  */
-export const remainingOf = (item: LedgerItem, today: Date = new Date()): number =>
-  Math.max(0, amountWithLateFee(item, today) - (item.paid_amount || 0));
+export const remainingOf = (
+  item: LedgerItem,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number => Math.max(0, amountWithLateFee(item, today, config) - (item.paid_amount || 0));
 
 /** Ana parası kapanmış ama faizi ödenmemiş kalem mi? */
-export const isFeeOnlyDebt = (item: LedgerItem, today: Date = new Date()): boolean =>
+export const isFeeOnlyDebt = (
+  item: LedgerItem,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): boolean =>
   item.status !== 'paid' &&
   (item.paid_amount || 0) >= item.amount &&
-  remainingOf(item, today) > 0.005;
+  remainingOf(item, today, config) > 0.005;
 
 /**
  * Ödenebilir toplam: açık borç + henüz vadesi gelmemiş planlı aidatlar.
@@ -93,20 +160,44 @@ export const isFeeOnlyDebt = (item: LedgerItem, today: Date = new Date()): boole
  * Sınırı buraya koymanın sebebi, planlama ufkunun ötesine ödenen paranın
  * uygulanacak bir kalemi olmaması - kasaya girer ama hiçbir ayı kapatmaz.
  */
-export const calculatePayableTotal = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
+export const calculatePayableTotal = (
+  ledgerItems: LedgerItem[],
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number =>
   ledgerItems
     .filter((item) => item.status !== 'paid')
-    .reduce((acc, item) => acc + remainingOf(item, today), 0);
+    .reduce((acc, item) => acc + remainingOf(item, today, config), 0);
 
 /** Bir sakinin toplam gecikme faizi (ana para hariç). */
-export const totalLateFee = (ledgerItems: LedgerItem[], today: Date = new Date()): number =>
+export const totalLateFee = (
+  ledgerItems: LedgerItem[],
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): number =>
   ledgerItems
     .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
-    .reduce((acc, item) => acc + Math.max(0, lateFeeOf(item, today) - Math.max(0, (item.paid_amount || 0) - item.amount)), 0);
+    .reduce((acc, item) => acc + Math.max(0, lateFeeOf(item, today, config) - Math.max(0, (item.paid_amount || 0) - item.amount)), 0);
 
 /** Ana parası kapanmış ama faizi ödenmemiş kalemler. */
-export const feeOnlyDebts = (ledgerItems: LedgerItem[], today: Date = new Date()): LedgerItem[] =>
-  ledgerItems.filter((item) => isFeeOnlyDebt(item, today));
+export const feeOnlyDebts = (
+  ledgerItems: LedgerItem[],
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): LedgerItem[] => ledgerItems.filter((item) => isFeeOnlyDebt(item, today, config));
+
+/** Faize girmesine az kalan kalemler (uyarı için). */
+export const approachingLateFee = (
+  ledgerItems: LedgerItem[],
+  withinDays: number,
+  today: Date = new Date(),
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): { item: LedgerItem; days: number }[] =>
+  ledgerItems
+    .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
+    .map((item) => ({ item, days: daysUntilLateFee(item.date, today, config) }))
+    .filter((x): x is { item: LedgerItem; days: number } => x.days !== null && x.days <= withinDays)
+    .sort((a, b) => a.days - b.days);
 
 /**
  * Sakinin ledger'ını planlı ödemelerle birlikte döndürür

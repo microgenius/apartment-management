@@ -10,10 +10,14 @@ import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
 import { canManageOthers } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
-import { totalLateFee, feeOnlyDebts, remainingOf } from '../../utils/helpers';
+import { totalLateFee, feeOnlyDebts, remainingOf, approachingLateFee } from '../../utils/helpers';
+
+// Faize girmesine bu kadar gün kalınca uyarılıyor
+const LATE_FEE_WARNING_DAYS = 15;
 
 export const FinancialsView: React.FC<FinancialsViewProps> = ({
   lang,
+  lateFee,
   residents,
   setResidents, 
   baseClasses, 
@@ -56,7 +60,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     residents.find((r) => r.id === userProfile?.resident_id) ??
     residents.find((r) => r.name === userProfile?.full_name);
   const myFullLedgerUnsorted = myResidentRecord ? getResidentLedgerWithPlanning(myResidentRecord) : [];
-  const myLateFee = totalLateFee(myFullLedgerUnsorted);
+  const myLateFee = totalLateFee(myFullLedgerUnsorted, new Date(), lateFee);
+  // Faize girmesine 15 günden az kalan kendi borçları
+  const myApproaching = approachingLateFee(myFullLedgerUnsorted, LATE_FEE_WARNING_DAYS, new Date(), lateFee);
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
   
   // Apply custom sorting
@@ -83,7 +89,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     // ödeyen sakinin parası planlı aylara dağıtılabilsin. Ötesine izin
     // vermiyoruz çünkü uygulanacak kalem kalmaz - para kasaya girer ama
     // hiçbir ayı kapatmaz, sessizce kaybolmuş gibi görünür.
-    const payable = calculatePayableTotal(debtorLedger);
+    const payable = calculatePayableTotal(debtorLedger, new Date(), lateFee);
     if (paymentAmount > payable) {
       setErrorModal({
         isOpen: true,
@@ -309,7 +315,40 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           <Wallet className={`mr-2 ${currentTheme.text}`} /> {t('financials')} (Admin)
         </h2>
 
-        <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} />
+        <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} config={lateFee} />
+
+        {/* Faize girmek üzere olan daireler - yönetici önceden hatırlatabilsin */}
+        {(() => {
+          const soon = residents
+            .map((r) => ({
+              resident: r,
+              items: approachingLateFee(getResidentLedgerWithPlanning(r), LATE_FEE_WARNING_DAYS, new Date(), lateFee)
+            }))
+            .filter((x) => x.items.length > 0);
+
+          if (soon.length === 0) return null;
+
+          return (
+            <div className={`mb-6 p-4 rounded-xl border ${darkMode ? 'border-amber-900/40 bg-amber-900/15' : 'border-amber-300 bg-amber-50'}`}>
+              <h3 className={`font-bold flex items-center text-sm ${baseClasses.textMain}`}>
+                <Clock size={18} className="mr-2 text-amber-500" /> {t('late_fee_soon_title')}
+              </h3>
+              <ul className={`text-sm mt-2 space-y-1 ${baseClasses.textSub}`}>
+                {soon.map(({ resident, items }) => (
+                  <li key={resident.id}>
+                    <span className={`font-medium ${baseClasses.textMain}`}>
+                      {resident.door} - {resident.name}
+                    </span>{' '}
+                    — {items.length} {t('items')},{' '}
+                    <span className="font-bold text-amber-600">
+                      {t('late_fee_soon_days').replace('{days}', String(items[0].days))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         {/* Ana parayı ödeyip faizi ödemeyenler. Bu kayıtlar borçlu listesinde
             küçük tutarlarla göründüğü için gözden kaçıyor; ayrı başlık altında
@@ -318,8 +357,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           const feeDebtors = residents
             .map((r) => {
               const ledger = getResidentLedgerWithPlanning(r);
-              const items = feeOnlyDebts(ledger);
-              const total = items.reduce((acc, i) => acc + remainingOf(i), 0);
+              const items = feeOnlyDebts(ledger, new Date(), lateFee);
+              const total = items.reduce((acc, i) => acc + remainingOf(i, new Date(), lateFee), 0);
               return { resident: r, items, total };
             })
             .filter((x) => x.items.length > 0);
@@ -352,7 +391,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                             <td className={`p-2 ${baseClasses.textSub}`}>{idx === 0 ? resident.name : ''}</td>
                             <td className={`p-2 ${baseClasses.textSub}`}>{item.desc}</td>
                             <td className="p-2 text-right font-bold text-amber-600">
-                              {remainingOf(item).toFixed(2)} ₺
+                              {remainingOf(item, new Date(), lateFee).toFixed(2)} ₺
                             </td>
                           </tr>
                         ))}
@@ -662,7 +701,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                 <p className={`text-sm ${baseClasses.textSub}`}>{selectedDebtor.name} (No: {selectedDebtor.door}{selectedDebtor.old_door ? `, ${t('old_door_short')}: ${selectedDebtor.old_door}` : ''})</p>
                 <p className="text-xl font-bold text-red-500 mt-1">{t('total')}: {calculateTotalDebt(getResidentLedgerWithPlanning(selectedDebtor))} ₺</p>
                 <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
-                  {t('prepayment_hint')} ({t('max')}: {calculatePayableTotal(getResidentLedgerWithPlanning(selectedDebtor)).toFixed(2)} ₺)
+                  {t('prepayment_hint')} ({t('max')}: {calculatePayableTotal(getResidentLedgerWithPlanning(selectedDebtor), new Date(), lateFee).toFixed(2)} ₺)
                 </p>
               </div>
               <input 
@@ -700,7 +739,27 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
         <Wallet className={`mr-2 ${currentTheme.text}`} /> {t('financials')}
       </h2>
 
-      <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} />
+      <LateFeeNotice baseClasses={baseClasses} t={t} darkMode={darkMode} myLateFee={myLateFee} config={lateFee} />
+
+      {/* Faize girmesine az kalan kalemler. Faiz işledikten sonra uyarmak geç
+          kalıyor; asıl faydalı olan tam öncesinde hatırlatmak. */}
+      {myApproaching.length > 0 && (
+        <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${darkMode ? 'border-amber-900/40 bg-amber-900/15' : 'border-amber-300 bg-amber-50'}`}>
+          <Clock size={20} className="shrink-0 mt-0.5 text-amber-500" />
+          <div className="min-w-0">
+            <p className={`font-bold text-sm ${baseClasses.textMain}`}>{t('late_fee_soon_title')}</p>
+            <ul className={`text-sm mt-1 space-y-0.5 ${baseClasses.textSub}`}>
+              {myApproaching.map(({ item, days }) => (
+                <li key={item.id}>
+                  {item.desc} — <span className="font-bold text-amber-600">
+                    {t('late_fee_soon_days').replace('{days}', String(days))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className={`bg-gradient-to-br ${currentTheme.gradient} rounded-xl p-6 text-white shadow-lg`}>
           <p className="opacity-80 mb-1">{t('total_debt')}</p>

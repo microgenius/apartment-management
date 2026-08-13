@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { BaseClasses } from '../types';
-import { LATE_FEE_MONTHLY_RATE, LATE_FEE_GRACE_MONTHS } from '../utils/helpers';
+import type { LateFeeConfig } from '../utils/helpers';
 
 interface Props {
   baseClasses: BaseClasses;
@@ -9,6 +9,8 @@ interface Props {
   darkMode: boolean;
   /** Kişinin kendi birikmiş faizi. Verilirse uyarı kişiselleşiyor. */
   myLateFee?: number;
+  /** Oran ve süreler ayarlardan geliyor; metin de ona göre yazılıyor. */
+  config: LateFeeConfig;
 }
 
 const money = (n: number) =>
@@ -22,7 +24,7 @@ const money = (n: number) =>
  * varsa tutarı da yazılıyor - soyut bir kural metni yerine somut rakam,
  * ödemeyi hatırlatmakta çok daha etkili.
  */
-export const LateFeeNotice: React.FC<Props> = ({ baseClasses, t, darkMode, myLateFee }) => {
+export const LateFeeNotice: React.FC<Props> = ({ baseClasses, t, darkMode, myLateFee, config }) => {
   const hasFee = (myLateFee ?? 0) > 0.005;
 
   return (
@@ -42,8 +44,9 @@ export const LateFeeNotice: React.FC<Props> = ({ baseClasses, t, darkMode, myLat
         <p className={`font-bold text-sm ${baseClasses.textMain}`}>{t('late_fee_title')}</p>
         <p className={`text-sm mt-1 ${baseClasses.textSub}`}>
           {t('late_fee_rule')
-            .replace('{months}', String(LATE_FEE_GRACE_MONTHS))
-            .replace('{rate}', String(LATE_FEE_MONTHLY_RATE * 100))}
+            .replace('{months}', String(config.graceMonths))
+            .replace('{rate}', String(+(config.rate * 100).toFixed(2)))
+            .replace('{days}', String(config.graceDays))}
         </p>
         {hasFee && (
           <p className="text-sm mt-2 font-bold text-red-500">
