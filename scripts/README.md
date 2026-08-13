@@ -555,3 +555,34 @@ enabled a phone-only user could never sign in.
 ```sql
 ALTER TABLE user_profiles DROP COLUMN IF EXISTS phone;
 ```
+
+
+---
+
+## 14. Late Interest Settings (`add_late_fee_settings.sql`)
+
+### Purpose
+Stores the general assembly's late-interest decision in `settings` so it can be
+changed from **Settings → Gecikme Faizi Ayarları** without a code change:
+
+| key | meaning | default |
+|---|---|---|
+| `late_fee_rate` | monthly rate, as a percentage (`5` = 5%) | `5` |
+| `late_fee_grace_months` | interest-free months; the due month counts as the 1st | `3` |
+| `late_fee_grace_days` | extra days on top of the months | `10` |
+
+### How the dates work
+Interest starts at `due date + grace_months months + grace_days days`. With the
+defaults, a January instalment starts accruing on **11 April** — the ten days
+exist so residents who pay quarterly are not charged over a few days' delay.
+From that point each month adds `rate` **compounded**.
+
+The interest is never written to `ledgers`; it is derived from the due date on
+every read. Storing it would need a monthly job, and a job that skips or runs
+twice would corrupt balances silently.
+
+### Rollback
+```sql
+DELETE FROM settings WHERE key LIKE 'late_fee%';
+```
+Removing the rows falls back to the defaults compiled into `helpers.ts`.

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Language, ThemeName, Resident } from './types';
+import type { Language, ThemeName, Resident, LedgerItem } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { canManageOthers } from './utils/permissions';
 import { TRANSLATIONS, isLanguage } from './constants/translations';
@@ -67,7 +67,7 @@ export default function App() {
   
   // Data States from Supabase
   const { residents, setResidents, refetch: refetchResidents, loading: residentsLoading } = useResidents();
-  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate, loading: settingsLoading } = useSettings();
+  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate, lateFee, setLateFee, loading: settingsLoading } = useSettings();
   const { requests, setRequests, loading: requestsLoading } = useRequests();
   const { communityPosts, setCommunityPosts, loading: postsLoading } = useCommunityPosts();
   const { contacts, refetch: refetchContacts, loading: contactsLoading } = useResidentContacts();
@@ -105,8 +105,12 @@ export default function App() {
   const myFlatLabel = myFlat ? `${t('flat')} ${myFlat.door}` : undefined;
 
   // Helper Functions with Dependencies
-  const getResidentLedgerWithPlanningBound = (resident: Resident) => 
+  const getResidentLedgerWithPlanningBound = (resident: Resident) =>
     getResidentLedgerWithPlanning(resident, meetingDate, lang, monthlyDue, debtStartDate);
+
+  // Borç toplamı faizi de kapsıyor; oran ayarlardan geldiği için bağlanıyor
+  const calculateTotalDebtBound = (items: LedgerItem[]) =>
+    calculateTotalDebt(items, new Date(), lateFee);
 
   return (
     <ProtectedRoute>
@@ -148,12 +152,13 @@ export default function App() {
 
             {!isLoading && activeTab === 'dashboard' && (
               <DashboardView
+                lateFee={lateFee}
                 residents={residents} 
                 setSelectedApartment={setSelectedApartment} 
                 selectedApartment={selectedApartment}
                 contacts={contacts}
                 refetchContacts={refetchContacts}
-                calculateTotalDebt={calculateTotalDebt}
+                calculateTotalDebt={calculateTotalDebtBound}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
@@ -165,6 +170,7 @@ export default function App() {
             {!isLoading && activeTab === 'financials' && (
               <FinancialsView
                 lang={lang}
+                lateFee={lateFee}
                 residents={residents}
                 setResidents={setResidents}
                 baseClasses={baseClasses} 
@@ -172,7 +178,7 @@ export default function App() {
                 t={t} 
                 darkMode={darkMode} 
                 meetingDate={meetingDate}
-                calculateTotalDebt={calculateTotalDebt}
+                calculateTotalDebt={calculateTotalDebtBound}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
               />
             )}
@@ -228,6 +234,8 @@ export default function App() {
                 setMonthlyDue={setMonthlyDue}
                 debtStartDate={debtStartDate}
                 setDebtStartDate={setDebtStartDate}
+                lateFee={lateFee}
+                setLateFee={setLateFee}
                 darkMode={darkMode}
                 residents={residents}
                 refetchResidents={refetchResidents}

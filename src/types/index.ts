@@ -31,7 +31,6 @@ export interface Resident {
   old_door: string | null;
   name: string;
   type: 'Kiracı' | 'Ev Sahibi';
-  phone: string;
   status: 'Dolu' | 'Boş';
   duty: ResidentDuty | null;
   /** Göreve başlama tarihi. Muafiyet bu aydan itibaren işler; öncesindeki
@@ -102,6 +101,7 @@ export interface InfoItem {
 
 import type { ResidentContact } from '../services/residentContactsService';
 import type { Transaction } from '../services/transactionsService';
+import type { LateFeeConfig } from '../utils/helpers';
 
 // Component Props Tipleri
 export interface CommonProps {
@@ -140,6 +140,7 @@ export interface HeaderProps {
 
 export interface FinancialsViewProps extends CommonProps {
   lang: Language;
+  lateFee: LateFeeConfig;
   residents: Resident[];
   setResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
   meetingDate: string;
@@ -148,6 +149,7 @@ export interface FinancialsViewProps extends CommonProps {
 }
 
 export interface DashboardViewProps extends CommonProps {
+  lateFee: LateFeeConfig;
   residents: Resident[];
   contacts: ResidentContact[];
   refetchContacts: () => void;
@@ -173,6 +175,8 @@ export interface CommunityBoardViewProps extends CommonProps {
 }
 
 export interface SettingsViewProps extends CommonProps {
+  lateFee: LateFeeConfig;
+  setLateFee: (config: LateFeeConfig) => Promise<void>;
   meetingDate: string;
   setMeetingDate: (date: string) => void;
   monthlyDue: number;

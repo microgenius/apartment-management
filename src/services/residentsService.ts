@@ -40,7 +40,6 @@ export const residentsService = {
       old_door: resident.old_door,
       name: resident.name,
       type: resident.type,
-      phone: resident.phone,
       status: resident.status,
       duty: dutyByResident.get(resident.id)?.duty ?? null,
       duty_since: dutyByResident.get(resident.id)?.since ?? null,
@@ -89,7 +88,6 @@ export const residentsService = {
       old_door: resident.old_door,
       name: resident.name,
       type: resident.type,
-      phone: resident.phone,
       status: resident.status,
       duty: (dutyHolder?.duty as ResidentDuty) ?? null,
       duty_since: dutyHolder?.duty_since ?? null,
@@ -113,8 +111,7 @@ export const residentsService = {
         old_door: resident.old_door,
         name: resident.name,
         type: resident.type,
-        phone: resident.phone,
-        status: resident.status
+          status: resident.status
       })
       .select()
       .single();

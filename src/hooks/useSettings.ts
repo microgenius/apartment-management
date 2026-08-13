@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { settingsService } from '../services/settingsService';
+import { DEFAULT_LATE_FEE, type LateFeeConfig } from '../utils/helpers';
 
 export function useSettings() {
   const [meetingDate, setMeetingDate] = useState<string>('2024-07-15');
   const [monthlyDue, setMonthlyDue] = useState<number>(0);
   const [debtStartDate, setDebtStartDate] = useState<string>('2024-01-01');
+  const [lateFee, setLateFee] = useState<LateFeeConfig>(DEFAULT_LATE_FEE);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,9 +17,11 @@ export function useSettings() {
       const date = await settingsService.getMeetingDate();
       const due = await settingsService.getMonthlyDue();
       const startDate = await settingsService.getDebtStartDate();
+      const fee = await settingsService.getLateFeeConfig();
       setMeetingDate(date);
       setMonthlyDue(due);
       setDebtStartDate(startDate);
+      setLateFee(fee);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch settings');
       console.error('Error fetching settings:', err);
@@ -59,6 +63,17 @@ export function useSettings() {
     }
   };
 
+  const updateLateFee = async (config: LateFeeConfig) => {
+    try {
+      await settingsService.setLateFeeConfig(config);
+      setLateFee(config);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update late fee settings');
+      console.error('Error updating late fee settings:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -70,6 +85,8 @@ export function useSettings() {
     setMonthlyDue: updateMonthlyDue,
     debtStartDate,
     setDebtStartDate: updateDebtStartDate,
+    lateFee,
+    setLateFee: updateLateFee,
     loading,
     error,
     refetch: fetchSettings

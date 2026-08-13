@@ -21,21 +21,24 @@ const makeResident = (duty: ResidentDuty | null, dutySince: string | null): Resi
 const DUE = 100;
 const START = '2025-01-01';
 const MEETING = '2025-12-31';
+// Gecikme faizi bugüne göre işlediği için toplamlar sabit bir "bugün" ile
+// hesaplanıyor; aksi halde test duvardaki saate göre farklı sonuç verirdi.
+const DONEM_ICI = new Date(2025, 0, 15);
 
 // --- Görevi olmayan sakin: 12 ayın hepsi üretilir ---
 const normal = getResidentLedgerWithPlanning(makeResident(null, null), MEETING, 'tr', DUE, START);
 assert.equal(normal.length, 12, 'görevsiz sakin için 12 ay üretilmeli');
-assert.equal(calculateTotalDebt(normal), 1200);
+assert.equal(calculateTotalDebt(normal, DONEM_ICI), 1200);
 
 // --- Yılın başından beri yönetici: hiç aidat üretilmez ---
 const fullYear = getResidentLedgerWithPlanning(makeResident('manager', START), MEETING, 'tr', DUE, START);
 assert.equal(fullYear.length, 0, 'baştan beri görevdeyse hiç aidat üretilmemeli');
-assert.equal(calculateTotalDebt(fullYear), 0);
+assert.equal(calculateTotalDebt(fullYear, DONEM_ICI), 0);
 
 // --- Temmuz'da göreve başladı: Ocak-Haziran borcu DURMALI, Temmuz'dan sonrası muaf ---
 const midYear = getResidentLedgerWithPlanning(makeResident('assistant', '2025-07-01'), MEETING, 'tr', DUE, START);
 assert.equal(midYear.length, 6, 'göreve başlamadan önceki 6 ay borç olarak kalmalı');
-assert.equal(calculateTotalDebt(midYear), 600);
+assert.equal(calculateTotalDebt(midYear, DONEM_ICI), 600);
 assert.ok(midYear.every((l) => l.date < '2025-07'), 'Temmuz ve sonrası üretilmemeli');
 
 // --- Ayın ortasında göreve başlamak o ayın tamamını muaf yapar ---
@@ -53,7 +56,7 @@ const withReal: Resident = {
 };
 const kept = getResidentLedgerWithPlanning(withReal, MEETING, 'tr', DUE, START);
 assert.equal(kept.length, 1, 'veritabanındaki gerçek kayıt silinmemeli');
-assert.equal(calculateTotalDebt(kept), 100);
+assert.equal(calculateTotalDebt(kept, DONEM_ICI), 100);
 
 console.log('✓ aidat üretimi ve görev muafiyeti kontrolleri geçti');
 
@@ -81,7 +84,7 @@ console.log('✓ eski kapı numarası sıralaması geçti');
 const planli = getResidentLedgerWithPlanning(makeResident(null, null), MEETING, 'tr', DUE, START);
 const bugun = new Date();
 // Tüm aylar açık olduğu için ödenebilir toplam = 12 ay
-assert.equal(calculatePayableTotal(planli), 1200, 'planlı aylar da ödenebilir sayılmalı');
+assert.equal(calculatePayableTotal(planli, DONEM_ICI), 1200, 'planlı aylar da ödenebilir sayılmalı');
 
 // Kısmi ödenmiş kalemde yalnızca KALAN kısım ödenebilir olmalı
 const kismi = [
@@ -89,9 +92,9 @@ const kismi = [
   { id: 'b', date: '2026-02-01', desc: '', amount: 100, status: 'planned' as const, paid_amount: 0 },
   { id: 'c', date: '2025-12-01', desc: '', amount: 100, status: 'paid' as const, paid_amount: 100 }
 ];
-assert.equal(calculatePayableTotal(kismi), 160, '60 kalan + 100 planlı; ödenmiş sayılmamalı');
+assert.equal(calculatePayableTotal(kismi, new Date(2026, 0, 15)), 160, '60 kalan + 100 planlı; ödenmiş sayılmamalı');
 // Borç göstergesi planlıyı saymamalı - kimse geleceğe borçlu değil
-assert.equal(calculateTotalDebt(kismi), 60, 'borç yalnızca vadesi gelmiş kısım');
+assert.equal(calculateTotalDebt(kismi, new Date(2026, 0, 15)), 60, 'borç yalnızca vadesi gelmiş kısım');
 void bugun;
 
 console.log('✓ peşin ödeme sınırı kontrolleri geçti');

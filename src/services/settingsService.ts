@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { DEFAULT_LATE_FEE, type LateFeeConfig } from '../utils/helpers';
 
 export const settingsService = {
   // Get setting by key
@@ -57,6 +58,28 @@ export const settingsService = {
   // Set debt start date
   async setDebtStartDate(date: string): Promise<void> {
     await this.set('debt_start_date', date);
+  },
+
+  // Gecikme faizi ayarları. Oran yüzde olarak saklanıyor ("5"), kodda
+  // ondalığa çevriliyor - ayarlar ekranında yüzde yazmak daha anlaşılır.
+  async getLateFeeConfig(): Promise<LateFeeConfig> {
+    const [rate, months, days] = await Promise.all([
+      this.get('late_fee_rate'),
+      this.get('late_fee_grace_months'),
+      this.get('late_fee_grace_days')
+    ]);
+
+    return {
+      rate: rate !== null ? parseFloat(rate) / 100 : DEFAULT_LATE_FEE.rate,
+      graceMonths: months !== null ? parseInt(months, 10) : DEFAULT_LATE_FEE.graceMonths,
+      graceDays: days !== null ? parseInt(days, 10) : DEFAULT_LATE_FEE.graceDays
+    };
+  },
+
+  async setLateFeeConfig(config: LateFeeConfig): Promise<void> {
+    await this.set('late_fee_rate', String(+(config.rate * 100).toFixed(4)));
+    await this.set('late_fee_grace_months', String(config.graceMonths));
+    await this.set('late_fee_grace_days', String(config.graceDays));
   },
 
   // Get all settings
