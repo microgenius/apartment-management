@@ -9,13 +9,27 @@ import type { Resident, LedgerItem, BaseClasses, Language } from '../types';
  * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
  * @returns Toplam borç miktarı
  */
+/**
+ * Kalemin vadesi geldi mi? Ay bazında bakılıyor: içinde bulunulan ay ve
+ * öncesi vadesi gelmiş, sonrası gelmemiş sayılıyor.
+ */
+export const isDue = (item: LedgerItem, today: Date = new Date()): boolean => {
+  const due = parseLocalDate(item.date);
+  if (!due) return true; // tarihi okunamayan kalemi borç saymak güvenli taraf
+  return due.getFullYear() < today.getFullYear() ||
+    (due.getFullYear() === today.getFullYear() && due.getMonth() <= today.getMonth());
+};
+
 export const calculateTotalDebt = (
   ledgerItems: LedgerItem[],
   today: Date = new Date(),
   config: LateFeeConfig = DEFAULT_LATE_FEE
 ): number =>
   ledgerItems
-    .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
+    // Vadesi gelmemiş kalemler borç değil. 'planned' zaten dışarıda kalıyordu
+    // ama peşin ödeme ileri tarihli bir ayı 'partial_paid' yapabiliyor; o da
+    // borç sayılıp sakin borçluymuş gibi kırmızı görünüyordu.
+    .filter((item) => (item.status === 'unpaid' || item.status === 'partial_paid') && isDue(item, today))
     // remainingOf gecikme faizini de kapsıyor: ana parayı ödeyip faizi
     // ödemeyen kişide borç sıfırlanmıyor
     .reduce((acc, item) => acc + remainingOf(item, today, config), 0);
@@ -176,7 +190,7 @@ export const totalLateFee = (
   config: LateFeeConfig = DEFAULT_LATE_FEE
 ): number =>
   ledgerItems
-    .filter((item) => item.status === 'unpaid' || item.status === 'partial_paid')
+    .filter((item) => (item.status === 'unpaid' || item.status === 'partial_paid') && isDue(item, today))
     .reduce((acc, item) => acc + Math.max(0, lateFeeOf(item, today, config) - Math.max(0, (item.paid_amount || 0) - item.amount)), 0);
 
 /** Ana parası kapanmış ama faizi ödenmemiş kalemler. */

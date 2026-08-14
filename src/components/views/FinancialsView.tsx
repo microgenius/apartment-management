@@ -10,7 +10,7 @@ import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
 import { canManageOthers } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
-import { totalLateFee, feeOnlyDebts, remainingOf, approachingLateFee } from '../../utils/helpers';
+import { totalLateFee, feeOnlyDebts, remainingOf, approachingLateFee, isDue } from '../../utils/helpers';
 
 // Faize girmesine bu kadar gün kalınca uyarılıyor
 const LATE_FEE_WARNING_DAYS = 15;
@@ -176,17 +176,22 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   };
 
   const renderLedgerRow = (item: LedgerItem) => {
+    // Vadesi gelmemiş kaleme yapılan kısmi ödeme borç değil, peşin ödemedir;
+    // uyarı rengiyle göstermek sakini borçluymuş gibi telaşlandırıyordu.
+    const prepaid = item.status === 'partial_paid' && !isDue(item);
+
     let statusColor = "bg-gray-100 text-gray-600";
     if (item.status === 'paid') statusColor = "bg-green-100 text-green-700";
     if (item.status === 'unpaid') statusColor = "bg-red-100 text-red-700";
-    if (item.status === 'planned') statusColor = "bg-blue-50 text-blue-600 border border-blue-100";
-    if (item.status === 'partial_paid') statusColor = "bg-yellow-100 text-yellow-700";
+    if (item.status === 'planned' || prepaid) statusColor = "bg-blue-50 text-blue-600 border border-blue-100";
+    else if (item.status === 'partial_paid') statusColor = "bg-yellow-100 text-yellow-700";
 
     const displayAmount = item.status === 'partial_paid' 
       ? `${item.paid_amount || 0} / ${item.amount} ₺`
       : `${item.amount} ₺`;
     
-    const amountColor = item.status === 'unpaid' ? 'text-red-500' 
+    const amountColor = prepaid ? 'text-blue-500'
+      : item.status === 'unpaid' ? 'text-red-500' 
       : item.status === 'planned' ? 'text-blue-500' 
       : item.status === 'partial_paid' ? 'text-yellow-600'
       : 'text-green-600';
@@ -197,7 +202,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
         <td className={`p-4 font-medium ${baseClasses.textMain}`}>{item.desc}</td>
         <td className="p-4">
           <span className={`px-2 py-1 rounded text-xs font-bold ${statusColor}`}>
-            {t(`status_${item.status}`)}
+            {t(prepaid ? 'status_prepaid' : `status_${item.status}`)}
           </span>
         </td>
         <td className={`p-4 text-right font-bold ${amountColor}`}>
