@@ -61,6 +61,14 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     residents.find((r) => r.name === userProfile?.full_name);
   const myFullLedgerUnsorted = myResidentRecord ? getResidentLedgerWithPlanning(myResidentRecord) : [];
   const myLateFee = totalLateFee(myFullLedgerUnsorted, new Date(), lateFee);
+  // Tüm dairelerin toplam borcu ve içindeki faiz payı (yönetici görünümü)
+  const totalDebtAll = residents.reduce(
+    (acc, r) => acc + calculateTotalDebt(getResidentLedgerWithPlanning(r)), 0
+  );
+  const totalLateFeeAll = residents.reduce(
+    (acc, r) => acc + totalLateFee(getResidentLedgerWithPlanning(r), new Date(), lateFee), 0
+  );
+
   // Faize girmesine 15 günden az kalan kendi borçları
   const myApproaching = approachingLateFee(myFullLedgerUnsorted, LATE_FEE_WARNING_DAYS, new Date(), lateFee);
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
@@ -477,6 +485,25 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                     );
                   })}
                 </tbody>
+                {/* Sitenin toplam alacağı. Tek tek satırlara bakıp kafadan
+                    toplamak zorunda kalmamak için listenin altında duruyor. */}
+                <tfoot>
+                  <tr className={`border-t-2 ${baseClasses.border} ${darkMode ? 'bg-slate-700/40' : 'bg-slate-50'}`}>
+                    <td className={`p-4 font-bold ${baseClasses.textMain}`} colSpan={2}>
+                      {t('total_debt_all')}
+                    </td>
+                    <td className={`p-4 text-right font-bold text-lg ${totalDebtAll > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                      {totalDebtAll.toFixed(2)} ₺
+                    </td>
+                    <td className="p-4" colSpan={2}>
+                      {totalLateFeeAll > 0.005 && (
+                        <span className="text-xs font-medium text-amber-600 block text-right">
+                          {t('late_fee')}: {totalLateFeeAll.toFixed(2)} ₺
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

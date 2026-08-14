@@ -104,6 +104,19 @@ export default function App() {
   const myFlat = residents.find((r) => r.id === userProfile?.resident_id);
   const myFlatLabel = myFlat ? `${t('flat')} ${myFlat.door}` : undefined;
 
+  // Gelir/Gider sekmesine her girişte kasayı tazele: tahsilat yapıldıkça ya da
+  // başka bir yönetici kayıt girdikçe değişiyor, açılışta bir kez çekmek
+  // sekmeye dönen kullanıcıya eski rakamı gösteriyordu.
+  //
+  // Yenileme FinanceView içinde yapılamaz: refetch loading'i true yapıyor,
+  // görünüm loading sırasında kapatıldığı için tekrar mount olup yeniden
+  // yenileme tetikliyor ve sonsuz döngüye giriyordu. Burada bağımlılık
+  // yalnızca activeTab olduğu için döngü oluşmuyor.
+  useEffect(() => {
+    if (activeTab === 'finance') refetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   // Helper Functions with Dependencies
   const getResidentLedgerWithPlanningBound = (resident: Resident) =>
     getResidentLedgerWithPlanning(resident, meetingDate, lang, monthlyDue, debtStartDate);
