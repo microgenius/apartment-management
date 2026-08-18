@@ -586,3 +586,31 @@ twice would corrupt balances silently.
 DELETE FROM settings WHERE key LIKE 'late_fee%';
 ```
 Removing the rows falls back to the defaults compiled into `helpers.ts`.
+
+---
+
+## 15. Bank Details (`add_bank_info_settings.sql`)
+
+### Purpose
+Creates the two `settings` rows that hold the site's collection account, shown
+on the **Info** screen as a copy-to-clipboard "Ödeme Bilgileri" card:
+
+| key | meaning |
+|---|---|
+| `bank_iban` | IBAN; stored as typed, displayed in groups of four, copied without spaces |
+| `bank_account_holder` | account holder / recipient name |
+
+### Why settings and not code
+The account can change with a new management board, and the IBAN should not sit
+in the git history. The script inserts **empty** rows; the values are typed in
+**Settings → Banka Bilgileri** by a manager. Do not commit real values into this
+file — the commented-out `UPDATE` statements at the bottom are there for
+one-off entry from the SQL Editor.
+
+While both values are empty the Info card is not rendered at all, so running
+this script alone changes nothing visible.
+
+### Rollback
+```sql
+DELETE FROM settings WHERE key LIKE 'bank_%';
+```
