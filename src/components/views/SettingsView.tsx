@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck, KeyRound } from 'lucide-react';
+import { Settings, Calendar, Info, UserPlus, UserCog, AlertCircle, CheckCircle, DollarSign, ShieldCheck, KeyRound, Landmark } from 'lucide-react';
 import type { SettingsViewProps, ResidentDuty } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfilesService, type UserProfile } from '../../services/userProfilesService';
@@ -27,7 +27,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   refetchContacts,
   lang,
   lateFee,
-  setLateFee
+  setLateFee,
+  bankInfo,
+  setBankInfo
 }) => {
   const { user, userProfile, createUser, refreshProfile } = useAuth();
   // Görev atama ve yöneticilik devri yalnızca admin'de: aksi halde yardımcı
@@ -196,6 +198,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('late_fee_save_failed') });
     } finally {
       setSavingFee(false);
+    }
+  };
+
+  // Banka bilgileri
+  const [iban, setIban] = useState<string>(bankInfo.iban);
+  const [holder, setHolder] = useState<string>(bankInfo.holder);
+  const [savingBank, setSavingBank] = useState(false);
+
+  useEffect(() => {
+    setIban(bankInfo.iban);
+    setHolder(bankInfo.holder);
+  }, [bankInfo]);
+
+  const handleSaveBankInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBank(true);
+    try {
+      await setBankInfo({ iban, holder });
+      setSuccessModal({ isOpen: true, title: t('success'), message: t('bank_info_saved') });
+    } catch (error) {
+      console.error('Error saving bank info:', error);
+      setErrorModal({ isOpen: true, title: t('error_occurred'), message: t('bank_info_save_failed') });
+    } finally {
+      setSavingBank(false);
     }
   };
 
@@ -636,6 +662,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </form>
         <p className={`text-xs mt-2 ${baseClasses.textSub}`}>{t('late_fee_days_hint')}</p>
+      </div>
+
+      {/* Banka bilgileri - Bilgi ekranında kopyalanabilir şekilde görünür.
+          IBAN kod deposunda durmasın diye burada, ayarlarda tutuluyor. */}
+      <div className={`p-6 rounded-xl border ${baseClasses.bgCard}`}>
+        <h3 className={`font-bold text-lg mb-2 flex items-center ${baseClasses.textMain}`}>
+          <Landmark className="mr-2" size={20} />
+          {t('bank_info_settings')}
+        </h3>
+        <p className={`text-sm mb-4 ${baseClasses.textSub}`}>{t('bank_info_settings_desc')}</p>
+
+        <form onSubmit={handleSaveBankInfo} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('iban')}
+            </label>
+            <input
+              type="text"
+              value={iban}
+              onChange={(e) => setIban(e.target.value)}
+              placeholder="TR00 0000 0000 0000 0000 0000 00"
+              className={`w-full p-3 rounded-lg border outline-none font-mono ${baseClasses.input}`}
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${baseClasses.textMain}`}>
+              {t('account_holder')}
+            </label>
+            <input
+              type="text"
+              value={holder}
+              onChange={(e) => setHolder(e.target.value)}
+              className={`w-full p-3 rounded-lg border outline-none ${baseClasses.input}`}
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={savingBank || (iban.trim() === bankInfo.iban && holder.trim() === bankInfo.holder)}
+              className={`w-full ${currentTheme.primary} text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50`}
+            >
+              {savingBank ? t('saving') : t('update')}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Site Görevleri - görevi olan daireden aidat alınmaz.
