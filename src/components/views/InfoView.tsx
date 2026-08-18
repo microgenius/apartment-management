@@ -1,5 +1,5 @@
-import React from 'react';
-import { Info, User, MapPin, Phone, Building } from 'lucide-react';
+import React, { useState } from 'react';
+import { Info, User, MapPin, Phone, Building, Landmark, Copy, Check } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { InfoViewProps, InfoItem } from '../../types';
 import { useInfo } from '../../hooks/useInfo';
@@ -43,11 +43,17 @@ const roleConfig: Record<InfoItem['role'], {
   }
 };
 
+/** IBAN'ı 4'erli gruplayarak okunur hale getirir; kopyalanırken
+ *  boşluksuz hali gidiyor (banka uygulamaları için). */
+const groupIban = (iban: string) =>
+  (iban.replace(/\s/g, '').match(/.{1,4}/g) || []).join(' ');
+
 export const InfoView: React.FC<InfoViewProps> = ({ 
   baseClasses, 
   currentTheme, 
   t, 
-  darkMode 
+  darkMode,
+  bankInfo
 }) => {
   const { infoItems, loading } = useInfo();
 
@@ -103,6 +109,59 @@ export const InfoView: React.FC<InfoViewProps> = ({
           })}
         </div>
       )}
+
+      {(bankInfo.iban || bankInfo.holder) && (
+      <div className={`mt-6 p-6 rounded-xl shadow-sm border-l-4 border-indigo-500 ${baseClasses.bgCard}`}>
+        <div className="flex items-center mb-4">
+          <div className="bg-indigo-100 p-3 rounded-full mr-4">
+            <Landmark className="text-indigo-600" size={24} />
+          </div>
+          <h3 className={`font-bold text-lg ${baseClasses.textMain}`}>{t('bank_info_title')}</h3>
+        </div>
+        <div className="space-y-3">
+          {bankInfo.iban && (
+            <CopyRow label={t('iban')} value={groupIban(bankInfo.iban)} copyValue={bankInfo.iban.replace(/\s/g, '')} baseClasses={baseClasses} darkMode={darkMode} t={t} />
+          )}
+          {bankInfo.holder && (
+            <CopyRow label={t('account_holder')} value={bankInfo.holder} baseClasses={baseClasses} darkMode={darkMode} t={t} />
+          )}
+        </div>
+      </div>
+      )}
     </div>
+  );
+};
+
+const CopyRow: React.FC<{
+  label: string;
+  value: string;
+  copyValue?: string;
+  baseClasses: InfoViewProps['baseClasses'];
+  darkMode: boolean;
+  t: InfoViewProps['t'];
+}> = ({ label, value, copyValue, baseClasses, darkMode, t }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(copyValue ?? value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={t('copy')}
+      className={`w-full flex items-center justify-between gap-3 p-3 rounded-lg border text-left transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 hover:bg-slate-800' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}
+    >
+      <div className="min-w-0">
+        <p className={`text-xs uppercase tracking-wide ${baseClasses.textSub}`}>{label}</p>
+        <p className={`font-mono text-sm sm:text-base break-all ${baseClasses.textMain}`}>{value}</p>
+      </div>
+      {copied
+        ? <span className="flex items-center shrink-0 text-green-600 text-sm"><Check size={18} className="mr-1" />{t('copied')}</span>
+        : <Copy size={18} className={`shrink-0 ${baseClasses.textSub}`} />}
+    </button>
   );
 };

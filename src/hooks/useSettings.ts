@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { settingsService } from '../services/settingsService';
 import { DEFAULT_LATE_FEE, type LateFeeConfig } from '../utils/helpers';
+import type { BankInfo } from '../types';
 
 export function useSettings() {
   const [meetingDate, setMeetingDate] = useState<string>('2024-07-15');
   const [monthlyDue, setMonthlyDue] = useState<number>(0);
   const [debtStartDate, setDebtStartDate] = useState<string>('2024-01-01');
   const [lateFee, setLateFee] = useState<LateFeeConfig>(DEFAULT_LATE_FEE);
+  const [bankInfo, setBankInfo] = useState<BankInfo>({ iban: '', holder: '' });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,10 +20,12 @@ export function useSettings() {
       const due = await settingsService.getMonthlyDue();
       const startDate = await settingsService.getDebtStartDate();
       const fee = await settingsService.getLateFeeConfig();
+      const bank = await settingsService.getBankInfo();
       setMeetingDate(date);
       setMonthlyDue(due);
       setDebtStartDate(startDate);
       setLateFee(fee);
+      setBankInfo(bank);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch settings');
       console.error('Error fetching settings:', err);
@@ -74,6 +78,17 @@ export function useSettings() {
     }
   };
 
+  const updateBankInfo = async (info: BankInfo) => {
+    try {
+      await settingsService.setBankInfo(info);
+      setBankInfo({ iban: info.iban.trim(), holder: info.holder.trim() });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update bank info');
+      console.error('Error updating bank info:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -87,6 +102,8 @@ export function useSettings() {
     setDebtStartDate: updateDebtStartDate,
     lateFee,
     setLateFee: updateLateFee,
+    bankInfo,
+    setBankInfo: updateBankInfo,
     loading,
     error,
     refetch: fetchSettings

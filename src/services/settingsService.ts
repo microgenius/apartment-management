@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { DEFAULT_LATE_FEE, type LateFeeConfig } from '../utils/helpers';
+import type { BankInfo } from '../types';
 
 export const settingsService = {
   // Get setting by key
@@ -80,6 +81,21 @@ export const settingsService = {
     await this.set('late_fee_rate', String(+(config.rate * 100).toFixed(4)));
     await this.set('late_fee_grace_months', String(config.graceMonths));
     await this.set('late_fee_grace_days', String(config.graceDays));
+  },
+
+  // Banka bilgileri Ayarlar ekranından giriliyor; IBAN kod deposunda
+  // durmasın diye repoda varsayılanı yok.
+  async getBankInfo(): Promise<BankInfo> {
+    const [iban, holder] = await Promise.all([
+      this.get('bank_iban'),
+      this.get('bank_account_holder')
+    ]);
+    return { iban: iban || '', holder: holder || '' };
+  },
+
+  async setBankInfo(info: BankInfo): Promise<void> {
+    await this.set('bank_iban', info.iban.trim());
+    await this.set('bank_account_holder', info.holder.trim());
   },
 
   // Get all settings

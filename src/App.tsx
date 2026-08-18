@@ -67,7 +67,7 @@ export default function App() {
   
   // Data States from Supabase
   const { residents, setResidents, refetch: refetchResidents, loading: residentsLoading } = useResidents();
-  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate, lateFee, setLateFee, loading: settingsLoading } = useSettings();
+  const { meetingDate, setMeetingDate, monthlyDue, setMonthlyDue, debtStartDate, setDebtStartDate, lateFee, setLateFee, bankInfo, setBankInfo, loading: settingsLoading } = useSettings();
   const { requests, setRequests, loading: requestsLoading } = useRequests();
   const { communityPosts, setCommunityPosts, loading: postsLoading } = useCommunityPosts();
   const { contacts, refetch: refetchContacts, loading: contactsLoading } = useResidentContacts();
@@ -82,7 +82,8 @@ export default function App() {
     finance: transactionsLoading,
     community: postsLoading,
     requests: requestsLoading,
-    settings: residentsLoading
+    settings: residentsLoading,
+    info: settingsLoading
   };
   const isLoading = loadingByTab[activeTab] ?? false;
 
@@ -236,6 +237,8 @@ export default function App() {
                 setDebtStartDate={setDebtStartDate}
                 lateFee={lateFee}
                 setLateFee={setLateFee}
+                bankInfo={bankInfo}
+                setBankInfo={setBankInfo}
                 darkMode={darkMode}
                 residents={residents}
                 refetchResidents={refetchResidents}
@@ -250,6 +253,7 @@ export default function App() {
                 currentTheme={currentTheme} 
                 t={t} 
                 darkMode={darkMode} 
+                bankInfo={bankInfo}
               />
             )}
           </div>

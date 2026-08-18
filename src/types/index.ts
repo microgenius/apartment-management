@@ -10,6 +10,13 @@ export type LedgerStatus = 'paid' | 'unpaid' | 'planned' | 'partial_paid';
 export type RequestStatus = 'status_new' | 'status_review' | 'status_completed';
 export type PostType = 'general' | 'event' | 'alert' | 'agenda';
 
+/** Aidat ödemesi için site hesabı. Boş string = henüz girilmemiş,
+ *  Bilgi ekranı kartı hiç göstermez. */
+export interface BankInfo {
+  iban: string;
+  holder: string;
+}
+
 // Veri Yapıları
 export interface LedgerItem {
   id: string;
@@ -175,6 +182,8 @@ export interface CommunityBoardViewProps extends CommonProps {
 }
 
 export interface SettingsViewProps extends CommonProps {
+  bankInfo: BankInfo;
+  setBankInfo: (info: BankInfo) => Promise<void>;
   lateFee: LateFeeConfig;
   setLateFee: (config: LateFeeConfig) => Promise<void>;
   meetingDate: string;
@@ -198,4 +207,6 @@ export interface FinanceViewProps extends CommonProps {
   lang: Language;
 }
 
-export interface InfoViewProps extends CommonProps {}
+export interface InfoViewProps extends CommonProps {
+  bankInfo: BankInfo;
+}
