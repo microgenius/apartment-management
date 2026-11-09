@@ -586,3 +586,73 @@ twice would corrupt balances silently.
 DELETE FROM settings WHERE key LIKE 'late_fee%';
 ```
 Removing the rows falls back to the defaults compiled into `helpers.ts`.
+
+---
+
+## 15. Bank Details (`add_bank_info_settings.sql`)
+
+### Purpose
+Creates the two `settings` rows that hold the site's collection account, shown
+on the **Info** screen as a copy-to-clipboard "Ödeme Bilgileri" card:
+
+| key | meaning |
+|---|---|
+| `bank_iban` | IBAN; stored as typed, displayed in groups of four, copied without spaces |
+| `bank_account_holder` | account holder / recipient name |
+
+### Why settings and not code
+The account can change with a new management board, and the IBAN should not sit
+in the git history. The script inserts **empty** rows; the values are typed in
+**Settings → Banka Bilgileri** by a manager. Do not commit real values into this
+file — the commented-out `UPDATE` statements at the bottom are there for
+one-off entry from the SQL Editor.
+
+While both values are empty the Info card is not rendered at all, so running
+this script alone changes nothing visible.
+
+### Rollback
+```sql
+DELETE FROM settings WHERE key LIKE 'bank_%';
+```
+
+---
+
+## 16. Debt Tracking Notes (`add_resident_notes.sql`)
+
+### Purpose
+Creates `resident_notes`: free-text notes a manager attaches to a **flat** for
+debt follow-up, shown next to that flat's debt on the Financials screen.
+
+The amount alone does not explain a debt. Something like *"February was
+forgotten but payments restarted in March — tell the owner this if they ask"*
+otherwise lives in one person's head and is lost at the next hand-over.
+
+### Why a separate table and not a column on `residents`
+Every authenticated user can read `residents` (`residents_select USING (true)`),
+so a `notes` column there would expose the management's own follow-up notes to
+the residents themselves. In this table **both** read and write are limited to
+`is_admin() OR has_duty()`, which is also why the notes do not appear on a
+resident's own Financials screen — deciding what to tell the owner stays with
+the manager.
+
+Notes hang off the flat, not off a month: follow-up usually spans several
+months at once.
+
+### Fields
+| column | meaning |
+|---|---|
+| `note` | the text itself |
+| `author_name` | the writer's name **as of that day**, not their user id — a year later what matters is who was on duty, and a later rename must not rewrite the record |
+| `created_at` | sort order, newest first |
+
+There is deliberately **no UPDATE policy**: a note that needs correcting is
+deleted and written again, so nothing changes silently after the fact.
+
+### Prerequisite
+Run `enable_rls.sql` first — the policies here call its `is_admin()` and
+`has_duty()` helpers.
+
+### Rollback
+```sql
+DROP TABLE IF EXISTS resident_notes;
+```

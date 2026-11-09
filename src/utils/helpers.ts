@@ -5,11 +5,6 @@
 import type { Resident, LedgerItem, BaseClasses, Language } from '../types';
 
 /**
- * Ledger kayıtlarından toplam borcu hesaplar
- * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
- * @returns Toplam borç miktarı
- */
-/**
  * Kalemin vadesi geldi mi? Ay bazında bakılıyor: içinde bulunulan ay ve
  * öncesi vadesi gelmiş, sonrası gelmemiş sayılıyor.
  */
@@ -20,25 +15,63 @@ export const isDue = (item: LedgerItem, today: Date = new Date()): boolean => {
     (due.getFullYear() === today.getFullYear() && due.getMonth() <= today.getMonth());
 };
 
+/**
+ * Borç sayılan kalem: açık VE vadesi gelmiş.
+ *
+ * Vadesi gelmemiş kalemler borç değil. 'planned' zaten dışarıda kalıyordu ama
+ * peşin ödeme ileri tarihli bir ayı 'partial_paid' yapabiliyor; o da borç
+ * sayılıp sakin borçluymuş gibi kırmızı görünüyordu.
+ *
+ * Tek tanım olarak duruyor çünkü faizsiz ve faizli toplam aynı kalemleri
+ * saymak zorunda: totalLateFee ikisinin farkı.
+ */
+const isOpenDebt = (item: LedgerItem, today: Date): boolean =>
+  (item.status === 'unpaid' || item.status === 'partial_paid') && isDue(item, today);
+
+/**
+ * Ledger kayıtlarından toplam borcu hesaplar - FAİZ HARİÇ.
+ *
+ * Tahsil edilen, "borcu var mı" sorusunu yanıtlayan rakam bu. Gecikme faizi
+ * zorunlu olmaktan çıktı (aşağıdaki bölüme bakın); faizli karşılığı
+ * calculateTotalDebtWithLateFee ile ayrıca hesaplanıp ekranda yanında
+ * gösteriliyor.
+ * @param ledgerItems - Ledger kayıtları (getResidentLedgerWithPlanning'den gelen)
+ * @returns Toplam borç miktarı (ana para)
+ */
 export const calculateTotalDebt = (
+  ledgerItems: LedgerItem[],
+  today: Date = new Date()
+): number =>
+  ledgerItems
+    .filter((item) => isOpenDebt(item, today))
+    .reduce((acc, item) => acc + remainingOf(item), 0);
+
+/**
+ * Aynı borcun faiz dahil karşılığı - yalnızca GÖSTERİM için.
+ *
+ * Alacak icra/mahkeme yoluna giderse talep edilecek tutar. Tahsilatta, ödeme
+ * sınırında ve "borcu kapandı mı" kararında kullanılmaz.
+ */
+export const calculateTotalDebtWithLateFee = (
   ledgerItems: LedgerItem[],
   today: Date = new Date(),
   config: LateFeeConfig = DEFAULT_LATE_FEE
 ): number =>
   ledgerItems
-    // Vadesi gelmemiş kalemler borç değil. 'planned' zaten dışarıda kalıyordu
-    // ama peşin ödeme ileri tarihli bir ayı 'partial_paid' yapabiliyor; o da
-    // borç sayılıp sakin borçluymuş gibi kırmızı görünüyordu.
-    .filter((item) => (item.status === 'unpaid' || item.status === 'partial_paid') && isDue(item, today))
-    // remainingOf gecikme faizini de kapsıyor: ana parayı ödeyip faizi
-    // ödemeyen kişide borç sıfırlanmıyor
-    .reduce((acc, item) => acc + remainingOf(item, today, config), 0);
+    .filter((item) => isOpenDebt(item, today))
+    .reduce((acc, item) => acc + remainingWithLateFee(item, today, config), 0);
 
 // ==========================================
 // GECİKME FAİZİ
 // ==========================================
-// Genel kurul kararı: vadesinde ödenmeyen aidata, tolerans süresi dolduktan
-// sonra her ay BİLEŞİK faiz işler.
+// Genel kurul kararı: faiz ZORUNLU DEĞİL. Komşuluk ilişkileri gözetilerek
+// aidat borcundan faiz talep edilmiyor; borç icra/mahkeme yoluna giderse
+// tolerans süresi dolduktan sonra her ay BİLEŞİK faiz işletilecek.
+//
+// Pratik sonucu: borcun kendisi ana paradır (calculateTotalDebt) - aidatını
+// ödeyen kişinin borcu kapanır. Faizli tutar ekranda onun yanında ikinci bir
+// rakam olarak duruyor (calculateTotalDebtWithLateFee); tahsilatta, ödeme
+// sınırında ve borç kapanma kararında kullanılmaz.
 //
 // Faiz veritabanında satır olarak TUTULMUYOR, vade tarihinden türetiliyor.
 // Sebebi: saklansaydı her ay tüm borçlara faiz ekleyen bir zamanlanmış iş
@@ -143,27 +176,20 @@ export const lateFeeOf = (
 ): number => amountWithLateFee(item, today, config) - item.amount;
 
 /**
- * Bir kalemden geriye kalan borç: faiz dahil tutardan ödenen düşülür.
+ * Bir kalemden geriye kalan ANA PARA. Tahsil edilen borç bu.
  *
- * Kritik nokta: ana parayı ödeyip faizi ödemeyen kişide bu değer sıfırdan
- * büyük kalır, yani borç kapanmış görünmez. Ödemeyi yalnızca ana parayla
- * karşılaştırsaydık faiz sessizce silinirdi.
+ * Faiz zorunlu olmadığı için ödeme ana parayla karşılaştırılıyor: aidatını
+ * ödeyen kişinin borcu kapanır, birikmiş faiz yüzünden açık kalmaz.
  */
-export const remainingOf = (
+export const remainingOf = (item: LedgerItem): number =>
+  Math.max(0, item.amount - (item.paid_amount || 0));
+
+/** Aynı kalemin faiz dahil kalanı - icra/mahkeme durumunda talep edilecek. */
+export const remainingWithLateFee = (
   item: LedgerItem,
   today: Date = new Date(),
   config: LateFeeConfig = DEFAULT_LATE_FEE
 ): number => Math.max(0, amountWithLateFee(item, today, config) - (item.paid_amount || 0));
-
-/** Ana parası kapanmış ama faizi ödenmemiş kalem mi? */
-export const isFeeOnlyDebt = (
-  item: LedgerItem,
-  today: Date = new Date(),
-  config: LateFeeConfig = DEFAULT_LATE_FEE
-): boolean =>
-  item.status !== 'paid' &&
-  (item.paid_amount || 0) >= item.amount &&
-  remainingOf(item, today, config) > 0.005;
 
 /**
  * Ödenebilir toplam: açık borç + henüz vadesi gelmemiş planlı aidatlar.
@@ -173,32 +199,28 @@ export const isFeeOnlyDebt = (
  * üst sınır bu olmalı: peşin ödeyen sakinin parası planlı aylara dağıtılıyor.
  * Sınırı buraya koymanın sebebi, planlama ufkunun ötesine ödenen paranın
  * uygulanacak bir kalemi olmaması - kasaya girer ama hiçbir ayı kapatmaz.
+ *
+ * Faiz tahsil edilmediği için sınır ana para toplamı: faizli tutarı sınır
+ * saysaydık, dağıtılacak kalemi olmayan bir fazlalığa izin verirdi.
  */
-export const calculatePayableTotal = (
-  ledgerItems: LedgerItem[],
-  today: Date = new Date(),
-  config: LateFeeConfig = DEFAULT_LATE_FEE
-): number =>
+export const calculatePayableTotal = (ledgerItems: LedgerItem[]): number =>
   ledgerItems
     .filter((item) => item.status !== 'paid')
-    .reduce((acc, item) => acc + remainingOf(item, today, config), 0);
+    .reduce((acc, item) => acc + remainingOf(item), 0);
 
-/** Bir sakinin toplam gecikme faizi (ana para hariç). */
+/**
+ * Bir sakinin işlemiş gecikme faizi (ana para hariç). Tahsil edilmiyor;
+ * mahkemeye gidilirse talep edilecek farkı göstermek için.
+ *
+ * Ekranda gösterilen iki tutarın farkı olarak tanımlı - rakamlar birbirini
+ * tutmayan iki ayrı formülden çıkmasın diye.
+ */
 export const totalLateFee = (
   ledgerItems: LedgerItem[],
   today: Date = new Date(),
   config: LateFeeConfig = DEFAULT_LATE_FEE
 ): number =>
-  ledgerItems
-    .filter((item) => (item.status === 'unpaid' || item.status === 'partial_paid') && isDue(item, today))
-    .reduce((acc, item) => acc + Math.max(0, lateFeeOf(item, today, config) - Math.max(0, (item.paid_amount || 0) - item.amount)), 0);
-
-/** Ana parası kapanmış ama faizi ödenmemiş kalemler. */
-export const feeOnlyDebts = (
-  ledgerItems: LedgerItem[],
-  today: Date = new Date(),
-  config: LateFeeConfig = DEFAULT_LATE_FEE
-): LedgerItem[] => ledgerItems.filter((item) => isFeeOnlyDebt(item, today, config));
+  calculateTotalDebtWithLateFee(ledgerItems, today, config) - calculateTotalDebt(ledgerItems, today);
 
 /** Faize girmesine az kalan kalemler (uyarı için). */
 export const approachingLateFee = (

@@ -42,12 +42,27 @@ When adding a new data entity, follow this same four-layer chain (table → serv
 
 `src/utils/helpers.ts` is where the non-obvious business logic lives:
 - `getResidentLedgerWithPlanning` synthesizes projected monthly dues between `debt_start_date` and the configured `meetingDate` (both stored in the `settings` table via `useSettings`), filling in months that don't have an actual `ledgers` row yet, and marking past/current synthesized months `unpaid` vs future ones `planned`.
-- `calculateTotalDebt` sums what is still owed on `unpaid` / `partial_paid` items, **late fee included**.
-- **Late fee** (general assembly decision): configured in `settings` (`late_fee_rate`, `late_fee_grace_months`, `late_fee_grace_days`) and edited from Settings, so a new assembly decision needs no deploy. Interest starts at `due + graceMonths + graceDays` and compounds monthly. It is *derived from the due date*, never stored — storing it would need a monthly job, and a job that skips or double-runs would corrupt balances silently. Every fee function takes a `LateFeeConfig` as its last argument; `App.tsx` reads it from `useSettings` and passes it down, so never rely on the module defaults in UI code. `remainingOf` compares payments against principal **plus** accrued fee, which stops a resident who pays only the principal from appearing settled; `feeOnlyDebts` surfaces those cases and `approachingLateFee` warns before interest starts.
+- `calculateTotalDebt` sums what is still owed on `unpaid` / `partial_paid` items that are **due** (`isDue`: this month or earlier) — **principal only, no late fee**. The due check exists because prepayment turns future months into `partial_paid`, and counting those made a resident who paid in advance show up red. `calculateTotalDebtWithLateFee` is the same sum with interest and exists purely to be displayed next to it.
+- **Late fee** (general assembly decision): **not charged**. Out of regard for neighbourly relations no interest is claimed on dues; the 5% is what the site would claim if a debt went to enforcement/court. So interest is never part of a debt: every screen shows the two figures side by side (`debt_with_late_fee`), and collection, the payment cap (`calculatePayableTotal`), "is this flat settled" and `remainingOf` all run on **principal**. `remainingWithLateFee`, `calculateTotalDebtWithLateFee` and `totalLateFee` (defined as the difference between the two totals, so the numbers on screen can never disagree) are display-only. Rate and grace periods are configured in `settings` (`late_fee_rate`, `late_fee_grace_months`, `late_fee_grace_days`) and edited from Settings, so a new assembly decision needs no deploy. Interest starts at `due + graceMonths + graceDays` and compounds monthly. It is *derived from the due date*, never stored — storing it would need a monthly job, and a job that skips or double-runs would corrupt balances silently. Every fee function takes a `LateFeeConfig` as its last argument; `App.tsx` reads it from `useSettings` and passes it down, so never rely on the module defaults in UI code. `approachingLateFee` still flags debts about to cross the grace threshold.
 - Parse `YYYY-MM-DD` strings with the local-date helper, not `new Date(str)` — the latter parses as UTC and shifts day-level maths by the timezone offset, which already caused an off-by-one in the fee start date.
 - `sortLedgerItems` imposes a fixed status display order (unpaid → partial_paid → planned → paid).
 
 Any view showing debt totals or ledger lists should go through these helpers rather than re-deriving the logic locally, so the planning/partial-payment rules stay in one place.
+
+### Debt follow-up notes
+
+`resident_notes` (`scripts/add_resident_notes.sql`) holds free-text notes a
+manager attaches to a **flat** — the debt's story, which the amount itself does
+not tell ("February was forgotten, payments restarted in March"). Rendered by
+`ResidentNotes` next to that flat's debt in `FinancialsView`, with a count badge
+in the debtor list.
+
+Read **and** write are limited to `is_admin() OR has_duty()` in RLS, which is
+why the notes are absent from a resident's own Financials screen: they are
+management's own follow-up record, and what to tell the owner stays the
+manager's call. A resident account simply gets an empty list, so no screen waits
+on this data. There is deliberately no UPDATE policy — a wrong note is deleted
+and written again.
 
 ### i18n, theming, persistence
 
