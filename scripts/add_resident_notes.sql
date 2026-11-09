@@ -14,6 +14,10 @@
 -- has_duty() ve is_admin() enable_rls.sql'de tanımlanıyor; bu betiği ondan
 -- SONRA çalıştırın.
 --
+-- GÜNCEL DEĞİL: aşağıdaki politikalar yardımcıyı da kapsıyor. Yürürlükteki
+-- sınır restrict_resident_notes_to_manager.sql ile yalnızca yöneticidir;
+-- bu betiği yeniden çalıştırırsanız onu da arkasından çalıştırın.
+--
 -- Idempotent.
 
 CREATE TABLE IF NOT EXISTS resident_notes (

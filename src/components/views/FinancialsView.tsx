@@ -8,7 +8,7 @@ import { useReceiptRequests } from '../../hooks/useReceiptRequests';
 import { SuccessModal } from '../modals/SuccessModal';
 import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
-import { canManageOthers } from '../../utils/permissions';
+import { canManageOthers, canManageNotes } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
 import { ResidentNotes } from '../ResidentNotes';
 import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee, isDue } from '../../utils/helpers';
@@ -36,6 +36,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   // yardımcısına da açık olmalı. role='admin' teknik süper-kullanıcı olduğu
   // için tek başına doğru ölçüt değil.
   const canManage = canManageOthers(userProfile);
+  // Takip notu yardımcıya kapalı: daire sahibine ne söyleneceği yöneticinin
+  // kararı. RLS zaten boş liste döndürür, bu kontrol ekleme formunu da gizler.
+  const canSeeNotes = canManageNotes(userProfile);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedDebtor, setSelectedDebtor] = useState<typeof residents[0] | null>(null);
   const [selectedResidentForDetail, setSelectedResidentForDetail] = useState<typeof residents[0] | null>(null);
@@ -268,6 +271,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
             </div>
           </div>
 
+          {canSeeNotes && (
           <div className="mb-6">
             <ResidentNotes
               residentId={selectedResidentForDetail.id}
@@ -280,6 +284,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
               lang={lang}
             />
           </div>
+          )}
 
           {/* Ledger Table */}
           <div className={`rounded-xl shadow-sm border overflow-hidden ${baseClasses.bgCard}`}>
