@@ -631,9 +631,10 @@ otherwise lives in one person's head and is lost at the next hand-over.
 Every authenticated user can read `residents` (`residents_select USING (true)`),
 so a `notes` column there would expose the management's own follow-up notes to
 the residents themselves. In this table **both** read and write are limited to
-`is_admin() OR has_duty()`, which is also why the notes do not appear on a
-resident's own Financials screen — deciding what to tell the owner stays with
-the manager.
+management, which is also why the notes do not appear on a resident's own
+Financials screen — deciding what to tell the owner stays with the manager.
+The original policies here said `is_admin() OR has_duty()`; §17 narrowed that
+to the manager alone.
 
 Notes hang off the flat, not off a month: follow-up usually spans several
 months at once.
@@ -656,3 +657,30 @@ Run `enable_rls.sql` first — the policies here call its `is_admin()` and
 ```sql
 DROP TABLE IF EXISTS resident_notes;
 ```
+
+
+---
+
+## 17. Notes Restricted to the Manager (`restrict_resident_notes_to_manager.sql`)
+
+Narrows the §16 policies from `has_duty()` (manager **and** assistant) to
+`is_manager()` (manager only), adding that helper alongside `enable_rls.sql`'s
+`has_duty()`.
+
+### Why
+Unlike collecting a payment, a follow-up note is the management's own record of
+what to tell a flat owner, and that call is not delegated. The assistant still
+collects and still sees every flat's debt; they just don't see this record.
+`is_admin()` stays in all three policies — the technical super-user is the one
+account that can repair a botched hand-over.
+
+The UI draws the same line through `canManageNotes` in
+`src/utils/permissions.ts`. RLS alone would already return an empty list to an
+assistant, but the panel would still render its "add note" form and fail on
+save, so the check exists on both sides.
+
+### Prerequisite
+Run `enable_rls.sql` and `add_resident_notes.sql` first.
+
+### Rollback
+Re-run the policy block in `add_resident_notes.sql`.

@@ -28,6 +28,17 @@ export const canManageOthers = (profile: UserProfile | null): boolean =>
   hasDuty(profile) || isAdmin(profile);
 
 /**
+ * Borç takip notlarını görebilir/yazabilir mi?
+ *
+ * Operasyonel işlerin aksine bu yalnızca yöneticide: not, daire sahibine ne
+ * söyleneceğine dair yönetimin kendi kaydı ve sorumluluğu devredilemiyor.
+ * Yardımcı tahsilat yapar ama bu kaydı görmez. RLS tarafında da aynı sınır
+ * var (scripts/restrict_resident_notes_to_manager.sql).
+ */
+export const canManageNotes = (profile: UserProfile | null): boolean =>
+  profile?.duty === 'manager' || isAdmin(profile);
+
+/**
  * Kendi oluşturduğu içeriği (duyuru, talep) silebilir mi?
  * Yazarıysa evet; başkasınınkini yalnızca görevli/admin silebilir.
  *

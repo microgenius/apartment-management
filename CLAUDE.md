@@ -57,11 +57,15 @@ not tell ("February was forgotten, payments restarted in March"). Rendered by
 `ResidentNotes` next to that flat's debt in `FinancialsView`, with a count badge
 in the debtor list.
 
-Read **and** write are limited to `is_admin() OR has_duty()` in RLS, which is
-why the notes are absent from a resident's own Financials screen: they are
-management's own follow-up record, and what to tell the owner stays the
-manager's call. A resident account simply gets an empty list, so no screen waits
-on this data. There is deliberately no UPDATE policy — a wrong note is deleted
+Read **and** write are limited to `is_admin() OR is_manager()` in RLS
+(`scripts/restrict_resident_notes_to_manager.sql` narrowed the original
+`has_duty()`), which is why the notes are absent from a resident's own
+Financials screen: they are management's own follow-up record, and what to tell
+the owner stays the manager's call — **not** the assistant's, who otherwise has
+every operational capability. A resident or assistant account simply gets an
+empty list, so no screen waits on this data. The view draws the same line with
+`canManageNotes`, because RLS alone would still render an "add note" form that
+then fails on save. There is deliberately no UPDATE policy — a wrong note is deleted
 and written again.
 
 ### i18n, theming, persistence

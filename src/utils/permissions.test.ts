@@ -2,7 +2,7 @@
 // ilgilendiriyorsa yönetici/yardımcısı".
 // Çalıştırmak için:  node --experimental-strip-types src/utils/permissions.test.ts
 import assert from 'node:assert/strict';
-import { canEditResident, canManageOthers, canDeleteContent, hasDuty, isAdmin } from './permissions.ts';
+import { canEditResident, canManageOthers, canManageNotes, canDeleteContent, hasDuty, isAdmin } from './permissions.ts';
 import type { UserProfile } from '../services/userProfilesService.ts';
 
 const profile = (over: Partial<UserProfile>): UserProfile => ({
@@ -73,3 +73,14 @@ assert.equal(canDeleteContent(yonetici, null), true, 'ama yönetici silebilmeli'
 assert.equal(canDeleteContent(null, 'u1'), false, 'oturum yoksa silemez');
 
 console.log('✓ içerik silme yetkisi kontrolleri geçti');
+
+// --- Borç takip notu: operasyonel yetkiden dar, yalnızca yönetici ---
+assert.equal(canManageNotes(yonetici), true);
+assert.equal(canManageNotes(yardimci), false, 'yardımcı tahsilat yapar ama notu görmez');
+assert.equal(canManageNotes(admin), true, 'teknik süper-kullanıcı dışarıda kalmamalı');
+assert.equal(canManageNotes(sakin), false);
+assert.equal(canManageNotes(null), false);
+// Asıl ayrım: yardımcı her operasyonel işi yapabiliyorken notu göremiyor
+assert.equal(canManageOthers(yardimci) && !canManageNotes(yardimci), true);
+
+console.log('✓ borç takip notu yetkisi kontrolleri geçti');
