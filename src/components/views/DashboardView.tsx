@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { canEditResident, canManageOthers } from '../../utils/permissions';
 import { ResidentContacts } from '../ResidentContacts';
 import { LateFeeNotice } from '../LateFeeNotice';
-import { totalLateFee } from '../../utils/helpers';
+import { totalLateFee, calculateTotalDebtWithLateFee } from '../../utils/helpers';
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
   residents, 
@@ -141,12 +141,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {canManage && (() => {
               const selectedLedger = getResidentLedgerWithPlanning(selectedApartment);
               const selectedDebt = calculateTotalDebt(selectedLedger);
+              // Faizli karşılığı yalnızca bilgi: tahsil edilen tutar üstteki
+              const selectedDebtWithFee = calculateTotalDebtWithLateFee(selectedLedger, new Date(), lateFee);
               return (
-                <div className={`flex justify-between border-b pb-2 ${baseClasses.border}`}>
-                  <span className={baseClasses.textSub}>{t('debt_status')}:</span>
-                  <span className={`font-bold ${selectedDebt > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                    {selectedDebt > 0 ? `${selectedDebt} TL` : t('no_debt')}
-                  </span>
+                <div className={`border-b pb-2 ${baseClasses.border}`}>
+                  <div className="flex justify-between">
+                    <span className={baseClasses.textSub}>{t('debt_status')}:</span>
+                    <span className={`font-bold ${selectedDebt > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      {selectedDebt > 0 ? `${selectedDebt.toFixed(2)} TL` : t('no_debt')}
+                    </span>
+                  </div>
+                  {selectedDebtWithFee - selectedDebt > 0.005 && (
+                    <div className={`flex justify-between text-xs mt-1 ${baseClasses.textSub}`}>
+                      <span>{t('debt_with_late_fee')}:</span>
+                      <span>{selectedDebtWithFee.toFixed(2)} TL</span>
+                    </div>
+                  )}
                 </div>
               );
             })()}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Language, ThemeName, Resident, LedgerItem } from './types';
+import type { Language, ThemeName, Resident } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { canManageOthers } from './utils/permissions';
 import { TRANSLATIONS, isLanguage } from './constants/translations';
@@ -9,6 +9,7 @@ import { useResidents } from './hooks/useResidents';
 import { useRequests } from './hooks/useRequests';
 import { useCommunityPosts } from './hooks/useCommunityPosts';
 import { useResidentContacts } from './hooks/useResidentContacts';
+import { useResidentNotes } from './hooks/useResidentNotes';
 import { useTransactions } from './hooks/useTransactions';
 import { useSettings } from './hooks/useSettings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -71,6 +72,9 @@ export default function App() {
   const { requests, setRequests, loading: requestsLoading } = useRequests();
   const { communityPosts, setCommunityPosts, loading: postsLoading } = useCommunityPosts();
   const { contacts, refetch: refetchContacts, loading: contactsLoading } = useResidentContacts();
+  // Borç takip notları: RLS yüzünden sakin hesaplarında boş döner, bu yüzden
+  // ekran bu veriyi beklemiyor (loadingByTab'a girmiyor).
+  const { notes: residentNotes, refetch: refetchResidentNotes } = useResidentNotes();
   const { transactions, duesTotal, refetch: refetchTransactions, loading: transactionsLoading } = useTransactions();
 
   // Aidat tutarı ve borç başlangıcı ayarlardan geliyor; ayarlar gelmeden
@@ -108,10 +112,6 @@ export default function App() {
   // Helper Functions with Dependencies
   const getResidentLedgerWithPlanningBound = (resident: Resident) =>
     getResidentLedgerWithPlanning(resident, meetingDate, lang, monthlyDue, debtStartDate);
-
-  // Borç toplamı faizi de kapsıyor; oran ayarlardan geldiği için bağlanıyor
-  const calculateTotalDebtBound = (items: LedgerItem[]) =>
-    calculateTotalDebt(items, new Date(), lateFee);
 
   return (
     <ProtectedRoute>
@@ -159,7 +159,7 @@ export default function App() {
                 selectedApartment={selectedApartment}
                 contacts={contacts}
                 refetchContacts={refetchContacts}
-                calculateTotalDebt={calculateTotalDebtBound}
+                calculateTotalDebt={calculateTotalDebt}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
                 baseClasses={baseClasses} 
                 currentTheme={currentTheme} 
@@ -179,7 +179,9 @@ export default function App() {
                 t={t} 
                 darkMode={darkMode} 
                 meetingDate={meetingDate}
-                calculateTotalDebt={calculateTotalDebtBound}
+                residentNotes={residentNotes}
+                refetchResidentNotes={refetchResidentNotes}
+                calculateTotalDebt={calculateTotalDebt}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
               />
             )}

@@ -3,7 +3,8 @@
 // Çalıştırmak için:  node --experimental-strip-types src/utils/latefee.test.ts
 import assert from 'node:assert/strict';
 import {
-  lateFeeMonths, amountWithLateFee, lateFeeOf, remainingOf, isFeeOnlyDebt,
+  lateFeeMonths, amountWithLateFee, lateFeeOf, remainingOf, remainingWithLateFee,
+  calculateTotalDebt, calculateTotalDebtWithLateFee, totalLateFee,
   lateFeeStartDate, daysUntilLateFee, approachingLateFee, DEFAULT_LATE_FEE,
   type LateFeeConfig
 } from './helpers.ts';
@@ -40,27 +41,30 @@ yakin(lateFeeOf(ocak, new Date(2026, 5, 15), AYSIZ), 47.2875, 'yalnızca faiz k�
 yakin(amountWithLateFee(item({ status: 'paid', paid_amount: 300 }), new Date(2027, 0, 1), AYSIZ), 300, 'ödenmişe faiz yok');
 yakin(amountWithLateFee(item({ status: 'planned' }), new Date(2027, 0, 1), AYSIZ), 300, 'planlıya faiz yok');
 
-// --- ANA BORÇ ÖDENDİ, FAİZ KALDI ---
-// Asıl önemli senaryo: 300 TL ana parayı ödeyen ama faizi ödemeyen kişide
-// borç kapanmış GÖRÜNMEMELİ.
-const anaParaOdenmis = item({ status: 'partial_paid', paid_amount: 300 });
+// --- FAİZ ZORUNLU DEĞİL: ANA PARAYI ÖDEYENİN BORCU KAPANIR ---
+// Genel kurul faizi mahkeme şartına bağladı. 300 TL ana parayı ödeyen kişi
+// borçlu görünmemeli; faizli karşılığı yalnızca bilgi olarak hesaplanıyor.
 const haziran = new Date(2026, 5, 15);
-yakin(remainingOf(anaParaOdenmis, haziran, AYSIZ), 47.2875, 'faiz borcu duruyor');
-assert.equal(isFeeOnlyDebt(anaParaOdenmis, haziran, AYSIZ), true, 'faiz borcu olarak işaretlenmeli');
+const anaParaOdenmis = item({ status: 'partial_paid', paid_amount: 300 });
+yakin(remainingOf(anaParaOdenmis), 0, 'ana para ödendi, borç kapandı');
+yakin(remainingWithLateFee(anaParaOdenmis, haziran, AYSIZ), 47.2875,
+  'mahkemeye gidilirse talep edilecek faiz');
 
-// Faizi de ödeyince kapanmalı
-const tamOdenmis = item({ status: 'partial_paid', paid_amount: 347.2875 });
-yakin(remainingOf(tamOdenmis, haziran, AYSIZ), 0, 'tamamı ödenince borç kalmaz');
-assert.equal(isFeeOnlyDebt(tamOdenmis, haziran, AYSIZ), false);
-
-// Tolerans içindeyken ana parayı ödeyen faiz borçlusu sayılmamalı
-const erkenOdenmis = item({ status: 'partial_paid', paid_amount: 300 });
-assert.equal(isFeeOnlyDebt(erkenOdenmis, new Date(2026, 2, 15), AYSIZ), false, 'faiz işlememişken borç yok');
-
-// Kısmi ödeme: ana paranın bir kısmı ödenmişse faiz borcu sayılmaz
+// Kısmi ödemede iki rakam da kalanı doğru göstermeli
 const kismi = item({ status: 'partial_paid', paid_amount: 100 });
-assert.equal(isFeeOnlyDebt(kismi, haziran, AYSIZ), false, 'ana para bitmemiş, faiz borcu değil');
-yakin(remainingOf(kismi, haziran, AYSIZ), 247.2875, 'kalan = faizli tutar - ödenen');
+yakin(remainingOf(kismi), 200, 'kalan ana para');
+yakin(remainingWithLateFee(kismi, haziran, AYSIZ), 247.2875, 'faizli kalan');
+
+// --- EKRANDA YAN YANA DURAN İKİ TUTAR ---
+const subat = item({ id: 'y', date: '2026-02-01', desc: 'Şubat Aidatı' });
+yakin(calculateTotalDebt([ocak, subat]), 600, 'borç = ana para toplamı');
+yakin(calculateTotalDebtWithLateFee([ocak, subat], haziran, AYSIZ), 678.0375, 'faizli toplam');
+yakin(totalLateFee([ocak, subat], haziran, AYSIZ), 78.0375, 'faiz = iki tutarın farkı');
+
+// Ödenmiş kalem iki toplamın da dışında
+const odenmis = [item({ status: 'paid', paid_amount: 300 })];
+yakin(calculateTotalDebt(odenmis), 0, 'ödenmişte borç yok');
+yakin(calculateTotalDebtWithLateFee(odenmis, haziran, AYSIZ), 0, 'ödenmişte faiz de yok');
 
 // --- 10 GÜNLÜK EK TOLERANS ---
 // Aidatını üç ayda bir ödeyenler birkaç günlük gecikmeyle faize girmesin.
@@ -101,4 +105,4 @@ assert.equal(
   0, 'ödenmiş kalem uyarılmaz'
 );
 
-console.log('✓ gecikme faizi kontrolleri geçti (tolerans ve uyarı dahil)');
+console.log('✓ gecikme faizi kontrolleri geçti (faiz borca eklenmiyor, ayrı gösteriliyor)');

@@ -107,6 +107,7 @@ export interface InfoItem {
 }
 
 import type { ResidentContact } from '../services/residentContactsService';
+import type { ResidentNote } from '../services/residentNotesService';
 import type { Transaction } from '../services/transactionsService';
 import type { LateFeeConfig } from '../utils/helpers';
 
@@ -151,6 +152,12 @@ export interface FinancialsViewProps extends CommonProps {
   residents: Resident[];
   setResidents: React.Dispatch<React.SetStateAction<Resident[]>>;
   meetingDate: string;
+  /** Dairelerin borç takip notları (tüm daireler; görünümde süzülüyor).
+   *  Yalnızca görevli/admin okuyabilir - RLS tarafında da öyle. */
+  residentNotes: ResidentNote[];
+  refetchResidentNotes: () => void;
+  /** Faiz HARİÇ borç. Faizli karşılığı görünümde
+   *  calculateTotalDebtWithLateFee ile hesaplanıyor. */
   calculateTotalDebt: (ledgerItems: LedgerItem[]) => number;
   getResidentLedgerWithPlanning: (resident: Resident) => LedgerItem[];
 }

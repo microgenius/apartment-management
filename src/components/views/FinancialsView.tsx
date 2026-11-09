@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Wallet, CreditCard, BellRing, Clock, Loader2, FileCheck, ChevronLeft, ChevronRight, Eye, StickyNote } from 'lucide-react';
 import type { FinancialsViewProps, LedgerItem } from '../../types';
 import { ledgersService, type LedgerOperation } from '../../services/ledgersService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,7 +10,8 @@ import { ErrorModal } from '../modals/ErrorModal';
 import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/helpers';
 import { canManageOthers } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
-import { totalLateFee, feeOnlyDebts, remainingOf, approachingLateFee } from '../../utils/helpers';
+import { ResidentNotes } from '../ResidentNotes';
+import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee } from '../../utils/helpers';
 
 // Faize girmesine bu kadar gün kalınca uyarılıyor
 const LATE_FEE_WARNING_DAYS = 15;
@@ -25,6 +26,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   t, 
   darkMode, 
   meetingDate, 
+  residentNotes,
+  refetchResidentNotes,
   calculateTotalDebt, 
   getResidentLedgerWithPlanning 
 }) => {
@@ -64,6 +67,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   // Faize girmesine 15 günden az kalan kendi borçları
   const myApproaching = approachingLateFee(myFullLedgerUnsorted, LATE_FEE_WARNING_DAYS, new Date(), lateFee);
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
+  // Faiz zorunlu değil: borç ana para. Faizli karşılığı yanında bilgi olarak
+  // duruyor - mahkemeye gidilmesi halinde talep edilecek tutar.
+  const myDebtWithFee = calculateTotalDebtWithLateFee(myFullLedgerUnsorted, new Date(), lateFee);
   
   // Apply custom sorting
   const myFullLedger = useMemo(() => sortLedgerItems(myFullLedgerUnsorted), [myFullLedgerUnsorted]);
@@ -89,7 +95,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     // ödeyen sakinin parası planlı aylara dağıtılabilsin. Ötesine izin
     // vermiyoruz çünkü uygulanacak kalem kalmaz - para kasaya girer ama
     // hiçbir ayı kapatmaz, sessizce kaybolmuş gibi görünür.
-    const payable = calculatePayableTotal(debtorLedger, new Date(), lateFee);
+    const payable = calculatePayableTotal(debtorLedger);
     if (paymentAmount > payable) {
       setErrorModal({
         isOpen: true,
@@ -205,6 +211,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     if (selectedResidentForDetail) {
       const detailLedgerUnsorted = getResidentLedgerWithPlanning(selectedResidentForDetail);
       const detailDebt = calculateTotalDebt(detailLedgerUnsorted);
+      const detailDebtWithFee = calculateTotalDebtWithLateFee(detailLedgerUnsorted, new Date(), lateFee);
+      const detailNotes = residentNotes.filter((n) => n.resident_id === selectedResidentForDetail.id);
       const detailLedger = sortLedgerItems(detailLedgerUnsorted);
       
       // Pagination for detail view
@@ -235,10 +243,28 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
             <div className={`bg-gradient-to-br ${currentTheme.gradient} rounded-xl p-6 text-white shadow-lg`}>
               <p className="opacity-80 mb-1">{t('total_debt')}</p>
               <h3 className="text-3xl font-bold">{detailDebt.toFixed(2)} ₺</h3>
+              {detailDebtWithFee - detailDebt > 0.005 && (
+                <p className="text-xs mt-1 opacity-90">
+                  {t('debt_with_late_fee')}: {detailDebtWithFee.toFixed(2)} ₺
+                </p>
+              )}
               <div className="mt-4 text-xs bg-white/20 p-2 rounded flex items-center">
                 <Clock size={14} className="mr-1"/> {t('meeting_date')}: {meetingDate}
               </div>
             </div>
+          </div>
+
+          <div className="mb-6">
+            <ResidentNotes
+              residentId={selectedResidentForDetail.id}
+              notes={detailNotes}
+              authorName={userProfile?.full_name || ''}
+              onChanged={refetchResidentNotes}
+              baseClasses={baseClasses}
+              currentTheme={currentTheme}
+              t={t}
+              lang={lang}
+            />
           </div>
 
           {/* Ledger Table */}
@@ -350,67 +376,6 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           );
         })()}
 
-        {/* Ana parayı ödeyip faizi ödemeyenler. Bu kayıtlar borçlu listesinde
-            küçük tutarlarla göründüğü için gözden kaçıyor; ayrı başlık altında
-            toplanınca takip edilebilir hale geliyor. */}
-        {(() => {
-          const feeDebtors = residents
-            .map((r) => {
-              const ledger = getResidentLedgerWithPlanning(r);
-              const items = feeOnlyDebts(ledger, new Date(), lateFee);
-              const total = items.reduce((acc, i) => acc + remainingOf(i, new Date(), lateFee), 0);
-              return { resident: r, items, total };
-            })
-            .filter((x) => x.items.length > 0);
-
-          if (feeDebtors.length === 0) return null;
-
-          return (
-            <div className={`mb-6 p-4 sm:p-6 rounded-xl border ${baseClasses.bgCard}`}>
-              <h3 className={`font-bold flex items-center ${baseClasses.textMain}`}>
-                <Clock size={18} className="mr-2 text-amber-500" /> {t('fee_only_debts')}
-              </h3>
-              <p className={`text-sm mt-1 mb-3 ${baseClasses.textSub}`}>{t('fee_only_debts_desc')}</p>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className={`border-b ${baseClasses.border} ${baseClasses.textSub}`}>
-                      <th className="p-2">{t('flat')}</th>
-                      <th className="p-2">{t('name')}</th>
-                      <th className="p-2">{t('desc')}</th>
-                      <th className="p-2 text-right">{t('outstanding_fee')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {feeDebtors.map(({ resident, items, total }) => (
-                      <React.Fragment key={resident.id}>
-                        {items.map((item, idx) => (
-                          <tr key={item.id} className={`border-b ${baseClasses.border}`}>
-                            <td className={`p-2 ${baseClasses.textMain}`}>{idx === 0 ? resident.door : ''}</td>
-                            <td className={`p-2 ${baseClasses.textSub}`}>{idx === 0 ? resident.name : ''}</td>
-                            <td className={`p-2 ${baseClasses.textSub}`}>{item.desc}</td>
-                            <td className="p-2 text-right font-bold text-amber-600">
-                              {remainingOf(item, new Date(), lateFee).toFixed(2)} ₺
-                            </td>
-                          </tr>
-                        ))}
-                        {items.length > 1 && (
-                          <tr className={`border-b ${baseClasses.border}`}>
-                            <td className="p-2" colSpan={3}></td>
-                            <td className={`p-2 text-right font-bold ${baseClasses.textMain}`}>
-                              {total.toFixed(2)} ₺
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })()}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className={`lg:col-span-2 rounded-xl shadow-sm border overflow-hidden ${baseClasses.bgCard}`}>
             <div className={`p-4 border-b ${baseClasses.border} flex justify-between items-center ${darkMode ? 'bg-slate-700/50' : currentTheme.light}`}>
@@ -431,6 +396,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                   {residents.map((resident) => {
                     const residentLedger = getResidentLedgerWithPlanning(resident);
                     const debt = calculateTotalDebt(residentLedger);
+                    const debtWithFee = calculateTotalDebtWithLateFee(residentLedger, new Date(), lateFee);
+                    const notes = residentNotes.filter((n) => n.resident_id === resident.id);
                     return (
                       <tr key={resident.id} className={`border-b ${baseClasses.border} ${baseClasses.hover}`}>
                         <td className={`p-4 font-medium ${baseClasses.textMain}`}>
@@ -441,9 +408,25 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                             </span>
                           )}
                         </td>
-                        <td className={`p-4 ${baseClasses.textSub}`}>{resident.name}</td>
+                        <td className={`p-4 ${baseClasses.textSub}`}>
+                          {resident.name}
+                          {/* Notu olan daire listede belli olsun; detayda okunuyor */}
+                          {notes.length > 0 && (
+                            <span
+                              title={notes.map((n) => n.note).join('\n\n')}
+                              className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-medium text-amber-600"
+                            >
+                              <StickyNote size={12} /> {notes.length}
+                            </span>
+                          )}
+                        </td>
                         <td className={`p-4 text-right font-bold ${debt > 0 ? 'text-red-500' : 'opacity-40'}`}>
-                          {debt} ₺
+                          {debt.toFixed(2)} ₺
+                          {debtWithFee - debt > 0.005 && (
+                            <span className={`block text-[11px] font-normal ${baseClasses.textSub}`}>
+                              {t('debt_with_late_fee')}: {debtWithFee.toFixed(2)} ₺
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-center">
                           <button
@@ -699,9 +682,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
               <h3 className={`text-xl font-bold mb-4 ${baseClasses.textMain}`}>{t('collection_process')}</h3>
               <div className={`mb-4 p-3 border rounded ${baseClasses.border}`}>
                 <p className={`text-sm ${baseClasses.textSub}`}>{selectedDebtor.name} (No: {selectedDebtor.door}{selectedDebtor.old_door ? `, ${t('old_door_short')}: ${selectedDebtor.old_door}` : ''})</p>
-                <p className="text-xl font-bold text-red-500 mt-1">{t('total')}: {calculateTotalDebt(getResidentLedgerWithPlanning(selectedDebtor))} ₺</p>
+                <p className="text-xl font-bold text-red-500 mt-1">{t('total')}: {calculateTotalDebt(getResidentLedgerWithPlanning(selectedDebtor)).toFixed(2)} ₺</p>
                 <p className={`text-xs mt-1 ${baseClasses.textSub}`}>
-                  {t('prepayment_hint')} ({t('max')}: {calculatePayableTotal(getResidentLedgerWithPlanning(selectedDebtor), new Date(), lateFee).toFixed(2)} ₺)
+                  {t('prepayment_hint')} ({t('max')}: {calculatePayableTotal(getResidentLedgerWithPlanning(selectedDebtor)).toFixed(2)} ₺)
                 </p>
               </div>
               <input 
@@ -764,6 +747,11 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
         <div className={`bg-gradient-to-br ${currentTheme.gradient} rounded-xl p-6 text-white shadow-lg`}>
           <p className="opacity-80 mb-1">{t('total_debt')}</p>
           <h3 className="text-3xl font-bold">{myDebt.toFixed(2)} ₺</h3>
+          {myDebtWithFee - myDebt > 0.005 && (
+            <p className="text-xs mt-1 opacity-90">
+              {t('debt_with_late_fee')}: {myDebtWithFee.toFixed(2)} ₺
+            </p>
+          )}
           <div className="mt-4 text-xs bg-white/20 p-2 rounded flex items-center">
             <Clock size={14} className="mr-1"/> {t('meeting_date')}: {meetingDate}
           </div>
