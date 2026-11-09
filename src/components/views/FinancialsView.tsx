@@ -11,7 +11,7 @@ import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/hel
 import { canManageOthers } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
 import { ResidentNotes } from '../ResidentNotes';
-import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee } from '../../utils/helpers';
+import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee, isDue } from '../../utils/helpers';
 
 // Faize girmesine bu kadar gün kalınca uyarılıyor
 const LATE_FEE_WARNING_DAYS = 15;
@@ -64,6 +64,15 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
     residents.find((r) => r.name === userProfile?.full_name);
   const myFullLedgerUnsorted = myResidentRecord ? getResidentLedgerWithPlanning(myResidentRecord) : [];
   const myLateFee = totalLateFee(myFullLedgerUnsorted, new Date(), lateFee);
+  // Tüm dairelerin toplam alacağı ve mahkeme halinde üstüne binecek faiz
+  // (yönetici görünümü). Faiz borcun içinde değil, yanında.
+  const totalDebtAll = residents.reduce(
+    (acc, r) => acc + calculateTotalDebt(getResidentLedgerWithPlanning(r)), 0
+  );
+  const totalLateFeeAll = residents.reduce(
+    (acc, r) => acc + totalLateFee(getResidentLedgerWithPlanning(r), new Date(), lateFee), 0
+  );
+
   // Faize girmesine 15 günden az kalan kendi borçları
   const myApproaching = approachingLateFee(myFullLedgerUnsorted, LATE_FEE_WARNING_DAYS, new Date(), lateFee);
   const myDebt = calculateTotalDebt(myFullLedgerUnsorted);
@@ -174,17 +183,22 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   };
 
   const renderLedgerRow = (item: LedgerItem) => {
+    // Vadesi gelmemiş kaleme yapılan kısmi ödeme borç değil, peşin ödemedir;
+    // uyarı rengiyle göstermek sakini borçluymuş gibi telaşlandırıyordu.
+    const prepaid = item.status === 'partial_paid' && !isDue(item);
+
     let statusColor = "bg-gray-100 text-gray-600";
     if (item.status === 'paid') statusColor = "bg-green-100 text-green-700";
     if (item.status === 'unpaid') statusColor = "bg-red-100 text-red-700";
-    if (item.status === 'planned') statusColor = "bg-blue-50 text-blue-600 border border-blue-100";
-    if (item.status === 'partial_paid') statusColor = "bg-yellow-100 text-yellow-700";
+    if (item.status === 'planned' || prepaid) statusColor = "bg-blue-50 text-blue-600 border border-blue-100";
+    else if (item.status === 'partial_paid') statusColor = "bg-yellow-100 text-yellow-700";
 
     const displayAmount = item.status === 'partial_paid' 
       ? `${item.paid_amount || 0} / ${item.amount} ₺`
       : `${item.amount} ₺`;
     
-    const amountColor = item.status === 'unpaid' ? 'text-red-500' 
+    const amountColor = prepaid ? 'text-blue-500'
+      : item.status === 'unpaid' ? 'text-red-500' 
       : item.status === 'planned' ? 'text-blue-500' 
       : item.status === 'partial_paid' ? 'text-yellow-600'
       : 'text-green-600';
@@ -195,7 +209,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
         <td className={`p-4 font-medium ${baseClasses.textMain}`}>{item.desc}</td>
         <td className="p-4">
           <span className={`px-2 py-1 rounded text-xs font-bold ${statusColor}`}>
-            {t(`status_${item.status}`)}
+            {t(prepaid ? 'status_prepaid' : `status_${item.status}`)}
           </span>
         </td>
         <td className={`p-4 text-right font-bold ${amountColor}`}>
@@ -460,6 +474,27 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                     );
                   })}
                 </tbody>
+                {/* Sitenin toplam alacağı. Tek tek satırlara bakıp kafadan
+                    toplamak zorunda kalmamak için listenin altında duruyor. */}
+                <tfoot>
+                  <tr className={`border-t-2 ${baseClasses.border} ${darkMode ? 'bg-slate-700/40' : 'bg-slate-50'}`}>
+                    <td className={`p-4 font-bold ${baseClasses.textMain}`} colSpan={2}>
+                      {t('total_debt_all')}
+                    </td>
+                    <td className={`p-4 text-right font-bold text-lg ${totalDebtAll > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                      {totalDebtAll.toFixed(2)} ₺
+                    </td>
+                    <td className="p-4" colSpan={2}>
+                      {/* Faiz ayrı bir alacak kalemi değil: tahsil edilmiyor,
+                          yalnızca mahkemeye gidilirse talep edilecek karşılığı */}
+                      {totalLateFeeAll > 0.005 && (
+                        <span className={`text-xs block text-right ${baseClasses.textSub}`}>
+                          {t('debt_with_late_fee')}: {(totalDebtAll + totalLateFeeAll).toFixed(2)} ₺
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
