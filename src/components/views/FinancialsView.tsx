@@ -11,7 +11,7 @@ import { sortLedgerItems, LOCALES, calculatePayableTotal } from '../../utils/hel
 import { canManageOthers, canManageNotes } from '../../utils/permissions';
 import { LateFeeNotice } from '../LateFeeNotice';
 import { ResidentNotes } from '../ResidentNotes';
-import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee, isDue } from '../../utils/helpers';
+import { totalLateFee, calculateTotalDebtWithLateFee, approachingLateFee, isDue, projectedDebtAt, todayISO } from '../../utils/helpers';
 
 // Faize girmesine bu kadar gün kalınca uyarılıyor
 const LATE_FEE_WARNING_DAYS = 15;
@@ -74,6 +74,16 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   );
   const totalLateFeeAll = residents.reduce(
     (acc, r) => acc + totalLateFee(getResidentLedgerWithPlanning(r), new Date(), lateFee), 0
+  );
+  // Toplantıya kadar beklenen: bugünkü alacak + o güne kadarki planlı aidatlar.
+  // Toplantı tarihi geçtiyse planlı ay kalmaz, Toplam Alacak'ın aynısı olurdu.
+  const showProjection = meetingDate > todayISO();
+  const projectedAll = residents.reduce(
+    (acc, r) => {
+      const p = projectedDebtAt(getResidentLedgerWithPlanning(r), meetingDate, lateFee);
+      return { principal: acc.principal + p.principal, withLateFee: acc.withLateFee + p.withLateFee };
+    },
+    { principal: 0, withLateFee: 0 }
   );
 
   // Faize girmesine 15 günden az kalan kendi borçları
@@ -499,6 +509,26 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
                       )}
                     </td>
                   </tr>
+                  {showProjection && (
+                    <tr className={darkMode ? 'bg-slate-700/40' : 'bg-slate-50'}>
+                      <td className={`px-4 pb-4 font-bold ${baseClasses.textMain}`} colSpan={2}>
+                        {t('expected_until_meeting')}
+                        <span className={`block text-[11px] font-normal ${baseClasses.textSub}`}>
+                          {t('expected_until_meeting_desc')
+                            .replace('{amount}', (projectedAll.principal - totalDebtAll).toFixed(2))
+                            .replace('{date}', meetingDate)}
+                        </span>
+                      </td>
+                      <td className={`px-4 pb-4 text-right font-bold text-lg ${currentTheme.text}`}>
+                        {projectedAll.principal.toFixed(2)} ₺
+                      </td>
+                      <td className="px-4 pb-4" colSpan={2}>
+                        <span className={`text-xs block text-right ${baseClasses.textSub}`}>
+                          {t('debt_with_late_fee')}: {projectedAll.withLateFee.toFixed(2)} ₺
+                        </span>
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>
