@@ -222,6 +222,28 @@ export const totalLateFee = (
 ): number =>
   calculateTotalDebtWithLateFee(ledgerItems, today, config) - calculateTotalDebt(ledgerItems, today);
 
+/**
+ * Verilen tarihte (genelde toplantı günü) beklenen alacak: bugünkü borç +
+ * o güne kadar vadesi gelecek planlı aidatlar, arada hiç ödeme gelmediği
+ * varsayımıyla. Faizli tutar da o güne göre işletiliyor, yani mevcut
+ * borçlara o zamana kadar binecek faiz de dahil. Yalnızca GÖSTERİM için.
+ */
+export const projectedDebtAt = (
+  ledgerItems: LedgerItem[],
+  date: string,
+  config: LateFeeConfig = DEFAULT_LATE_FEE
+): { principal: number; withLateFee: number } => {
+  const at = parseLocalDate(date) ?? new Date();
+  // O güne gelindiğinde planlı aylar vadesi gelmiş, ödenmemiş borç olur
+  const items = ledgerItems.map((item) =>
+    item.status === 'planned' ? { ...item, status: 'unpaid' as const } : item
+  );
+  return {
+    principal: calculateTotalDebt(items, at),
+    withLateFee: calculateTotalDebtWithLateFee(items, at, config)
+  };
+};
+
 /** Faize girmesine az kalan kalemler (uyarı için). */
 export const approachingLateFee = (
   ledgerItems: LedgerItem[],
