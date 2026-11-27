@@ -196,6 +196,8 @@ export default function App() {
                 refetchResidentNotes={refetchResidentNotes}
                 calculateTotalDebt={calculateTotalDebt}
                 getResidentLedgerWithPlanning={getResidentLedgerWithPlanningBound}
+                transactions={transactions}
+                refetchTransactions={refetchTransactions}
               />
             )}
             

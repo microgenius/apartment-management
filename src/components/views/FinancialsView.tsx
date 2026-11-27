@@ -29,7 +29,9 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
   residentNotes,
   refetchResidentNotes,
   calculateTotalDebt, 
-  getResidentLedgerWithPlanning 
+  getResidentLedgerWithPlanning,
+  transactions,
+  refetchTransactions
 }) => {
   const { userProfile, user } = useAuth();
   // Tahsilat ve tüm dairelerin borcunu görmek operasyonel bir iş: yönetici ve
@@ -186,6 +188,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
       );
       
       setResidents(updatedResidents);
+      refetchTransactions();
       setPaymentModalOpen(false);
       setSelectedDebtor(null);
       setSuccessModal({ isOpen: true, title: 'Başarılı', message: 'Ödeme başarıyla işlendi.' });
@@ -193,6 +196,43 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
       console.error('Payment processing error:', error);
       setErrorModal({ isOpen: true, title: 'Hata', message: 'Ödeme işlenirken bir hata oluştu.' });
     }
+  };
+
+  // Ledger ayları kapatılmış haliyle gösteriyor; hangi gün ne kadar
+  // geldiğini yalnızca kasa kaydı biliyor (300+300 gibi parçalı ödemeler).
+  // Sakin yalnızca kendi dairesininkini alır (allow_residents_own_payments.sql).
+  const renderPayments = (residentId: number) => {
+    const payments = transactions.filter(
+      (tx) => tx.source === 'dues' && tx.resident_id === residentId
+    );
+    return (
+      <div className={`rounded-xl shadow-sm border overflow-hidden mb-6 ${baseClasses.bgCard}`}>
+        <div className={`p-4 border-b font-semibold ${baseClasses.textMain} ${baseClasses.border} ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+          {t('payment_transactions')}
+        </div>
+        {payments.length === 0 ? (
+          <p className={`p-4 text-sm ${baseClasses.textSub}`}>{t('no_payment_transactions')}</p>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b text-sm ${baseClasses.border} ${baseClasses.textSub}`}>
+                <th className="p-4">{t('date')}</th>
+                <th className="p-4 text-right">{t('amount')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((tx) => (
+                <tr key={tx.id} className={`border-b ${baseClasses.border} ${baseClasses.hover}`}>
+                  {/* T00:00 -> yerel saat; çıplak YYYY-MM-DD UTC sayılıp bir gün kayabiliyor */}
+                  <td className={`p-4 ${baseClasses.textSub}`}>{new Date(`${tx.date}T00:00`).toLocaleDateString(LOCALES[lang])}</td>
+                  <td className="p-4 text-right font-bold text-green-600">{Number(tx.amount).toFixed(2)} ₺</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
   };
 
   const renderLedgerRow = (item: LedgerItem) => {
@@ -295,6 +335,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
             />
           </div>
           )}
+
+          {renderPayments(selectedResidentForDetail.id)}
 
           {/* Ledger Table */}
           <div className={`rounded-xl shadow-sm border overflow-hidden ${baseClasses.bgCard}`}>
@@ -888,6 +930,8 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {myResidentRecord && renderPayments(myResidentRecord.id)}
 
       <div className={`rounded-xl shadow-sm border overflow-hidden ${baseClasses.bgCard}`}>
         <div className={`p-4 border-b font-semibold ${baseClasses.textMain} ${baseClasses.border} ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>

@@ -684,3 +684,26 @@ Run `enable_rls.sql` and `add_resident_notes.sql` first.
 
 ### Rollback
 Re-run the policy block in `add_resident_notes.sql`.
+
+---
+
+## 18. Residents See Their Own Payments (`allow_residents_own_payments.sql`)
+
+Widens `transactions_select` so a resident can read the `source = 'dues'` rows
+of **their own flat** (`resident_id = my_resident_id()`). Other flats' payment
+rows stay hidden, as `add_transactions.sql` intended.
+
+### Why
+Flats often pay in pieces (300 + 300), and the ledger only shows which months
+ended up paid, not when each amount arrived. The dated rows answer that for the
+flat itself, without revealing who else paid what.
+
+`FinanceView` drops `dues` rows from a resident's cash-book list and keeps the
+single `dues_income_total()` summary row, so the resident's own payments are
+not counted twice.
+
+### Prerequisite
+Run `enable_rls.sql` and `add_transactions.sql` first.
+
+### Rollback
+Re-run the `transactions_select` policy from `add_transactions.sql`.
