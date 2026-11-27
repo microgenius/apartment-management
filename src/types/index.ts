@@ -160,6 +160,10 @@ export interface FinancialsViewProps extends CommonProps {
    *  calculateTotalDebtWithLateFee ile hesaplanıyor. */
   calculateTotalDebt: (ledgerItems: LedgerItem[]) => number;
   getResidentLedgerWithPlanning: (resident: Resident) => LedgerItem[];
+  /** Kasa kayıtları; aidat satırları (source='dues') RLS gereği yalnızca
+   *  görevli/admin için dolu gelir. */
+  transactions: Transaction[];
+  refetchTransactions: () => void;
 }
 
 export interface DashboardViewProps extends CommonProps {

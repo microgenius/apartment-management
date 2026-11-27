@@ -35,12 +35,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [template, setTemplate] = useState<ReportTemplate>('summary');
 
   // Sakinler aidat tahsilatlarını kalem kalem göremiyor (kimin ne ödediği
-  // kişisel bilgi); RLS o satırları zaten getirmiyor. Toplamı tek bir
-  // özet satırı olarak ekliyoruz ki kasa bakiyesi doğru çıksın.
+  // kişisel bilgi); RLS yalnızca KENDİ dairesinin satırlarını getiriyor. Onları
+  // da atıp toplamı tek bir özet satırı olarak ekliyoruz: yoksa kendi ödemesi
+  // toplamla birlikte iki kez sayılır ve kasa bakiyesi şişerdi.
   const visibleTransactions = useMemo<Transaction[]>(() => {
-    if (canEdit || duesTotal <= 0) return transactions;
+    if (canEdit) return transactions;
+    const publicRows = transactions.filter((x) => x.source !== 'dues');
+    if (duesTotal <= 0) return publicRows;
     return [
-      ...transactions,
+      ...publicRows,
       {
         id: -1,
         type: 'income',
